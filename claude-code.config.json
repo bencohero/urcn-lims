@@ -1,0 +1,91 @@
+{
+  "project": {
+    "name": "Clinical Storage System",
+    "version": "1.0.0",
+    "description": "Système de gestion d'entreposage pour études cliniques multi-sites",
+    "type": "fullstack"
+  },
+  "architecture": {
+    "backend": {
+      "framework": "FastAPI",
+      "language": "Python 3.11+",
+      "database": "PostgreSQL 15+",
+      "services": [
+        "auth-service",
+        "core-api",
+        "rfid-service",
+        "workflow-engine",
+        "notification-service",
+        "reporting-service",
+        "audit-service"
+      ]
+    },
+    "frontend": {
+      "framework": "React 18",
+      "buildTool": "Vite 5",
+      "router": "React Router v6",
+      "stateManagement": ["Zustand", "React Query"],
+      "styling": "Tailwind CSS"
+    },
+    "infrastructure": {
+      "containerization": "Docker",
+      "reverseProxy": "Nginx",
+      "cache": "Redis",
+      "messageQueue": "RabbitMQ",
+      "storage": "MinIO"
+    }
+  },
+  "standards": {
+    "backend": {
+      "codingStyle": "PEP 8",
+      "linter": "flake8",
+      "formatter": "black",
+      "typeChecker": "mypy",
+      "testing": "pytest"
+    },
+    "frontend": {
+      "codingStyle": "Airbnb",
+      "linter": "ESLint",
+      "formatter": "Prettier",
+      "testing": "Vitest"
+    }
+  },
+  "guidelines": {
+    "naming": {
+      "files": "snake_case for Python, kebab-case for React",
+      "functions": "snake_case for Python, camelCase for JavaScript",
+      "classes": "PascalCase",
+      "constants": "UPPER_SNAKE_CASE"
+    },
+    "commits": {
+      "format": "conventional commits",
+      "types": ["feat", "fix", "docs", "style", "refactor", "test", "chore"]
+    },
+    "branching": {
+      "main": "main",
+      "development": "develop",
+      "features": "feature/",
+      "bugfixes": "fix/",
+      "releases": "release/"
+    }
+  },
+  "compliance": {
+    "regulations": ["GCP/ICH", "RGPD"],
+    "security": ["JWT", "RBAC", "Audit Trail", "Encryption AES-256"],
+    "dataRetention": "10 years"
+  },
+  "references": {
+    "documentation": [
+      "./docs/ARCHITECTURE_GLOBALE.md",
+      "./docs/DATABASE_SCHEMA.md",
+      "./docs/API_SPECIFICATIONS.md",
+      "./docs/IMPLEMENTATION_GUIDE.md",
+      "./docs/UI_MOCKUPS.md",
+      "./docs/TEST_PLAN.md",
+      "./docs/USER_GUIDE.md",
+      "./docs/REACT_ARCHITECTURE.md"
+    ],
+    "frontend": "./clinical-storage-frontend",
+    "backend": "./backend"
+  }
+}
