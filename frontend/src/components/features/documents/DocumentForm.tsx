@@ -6,6 +6,7 @@ import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import type { CreateDocumentRequest } from '@/types';
 
+
 const documentSchema = z.object({
   study_id: z.string().min(1, 'Etude requise'),
   site_id: z.string().min(1, 'Site requis'),
