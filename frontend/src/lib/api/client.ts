@@ -3,6 +3,12 @@ import { useAuthStore } from '@/store/authStore';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL //|| 'http://localhost:8001/api/v1';
 
+
+if (!API_BASE_URL) {
+  throw new Error('VITE_API_URL is not defined in environment variables');
+}
+
+
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   timeout: 30000,
