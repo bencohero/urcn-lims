@@ -5,7 +5,7 @@ import { Footer } from './Footer';
 import { OfflineBanner } from '@/components/features/shared/OfflineBanner';
 import { useOfflineStore } from '@/store/offlineStore';
 import { useUIStore } from '@/store/uiStore';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 
 export function MainLayout() {
   const { isOnline } = useOfflineStore();

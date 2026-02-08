@@ -17,7 +17,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { Tabs, TabContent } from '@/components/ui/Tabs';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useDocumentById, useDocumentHistory } from '@/hooks/useDocuments';
-import { formatDate, formatDateTime } from '@/lib/utils';
+import { formatDate, formatDateTime } from '@/lib/utils/utils';
 import { useState } from 'react';
 import type { AuditEntry } from '@/types';
 

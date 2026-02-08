@@ -17,7 +17,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useDashboardStatistics } from '@/hooks/useDashboard';
 import { useAuthStore } from '@/store/authStore';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import type { ReactNode } from 'react';
 
 interface KPICardProps {

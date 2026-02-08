@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { useDocuments, useCreateDocument } from '@/hooks/useDocuments';
 import { useToast } from '@/components/ui/Toast';
-import { formatDate } from '@/lib/utils';
+import { formatDate } from '@/lib/utils/utils';
 import type { Document, DocumentFilters, DocumentType, DocumentStatus } from '@/types';
 import { DocumentForm } from '@/components/features/documents/DocumentForm';
 

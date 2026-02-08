@@ -10,7 +10,7 @@ import { DataTable, type Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Badge } from '@/components/ui/Badge';
 import { useEquipment } from '@/hooks/useEquipment';
-import { formatDate } from '@/lib/utils';
+import { formatDate } from '@/lib/utils/utils';
 import type { Equipment, EquipmentFilters, EquipmentType } from '@/types';
 
 const EQUIPMENT_TYPE_OPTIONS = [

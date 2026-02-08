@@ -20,7 +20,7 @@ import { DataTable, type Column } from '@/components/ui/DataTable';
 import { Modal } from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/Toast';
 import { useUsers, useCreateUser, useToggleUserActive } from '@/hooks/useUsers';
-import { formatDate } from '@/lib/utils';
+import { formatDate } from '@/lib/utils/utils';
 import type { User, RoleCode } from '@/types';
 import type { UserFilters, CreateUserRequest } from '@/lib/api/users';
 import { useForm } from 'react-hook-form';

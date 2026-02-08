@@ -14,7 +14,7 @@ import type { LucideIcon } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useUIStore } from '@/store/uiStore';
 import type { RoleCode } from '@/types';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 
 interface NavigationItem {
   label: string;

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { Button } from './Button';
 import { Spinner } from './Spinner';
 import { EmptyState } from './EmptyState';

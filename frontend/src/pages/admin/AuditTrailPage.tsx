@@ -17,7 +17,7 @@ import { DataTable, type Column } from '@/components/ui/DataTable';
 import { useToast } from '@/components/ui/Toast';
 import { useAuditTrail, useVerifyIntegrity } from '@/hooks/useAuditTrail';
 import { auditTrailApi } from '@/lib/api/auditTrail';
-import { formatDateTime } from '@/lib/utils';
+import { formatDateTime } from '@/lib/utils/utils';
 import type { AuditEntry, AuditTrailFilters, AuditEventType } from '@/types';
 
 const EVENT_TYPE_OPTIONS = [

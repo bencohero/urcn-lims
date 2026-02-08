@@ -1,6 +1,6 @@
 import { WifiOff } from 'lucide-react';
 import { useOfflineStore } from '@/store/offlineStore';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 
 interface OfflineBannerProps {
   className?: string;

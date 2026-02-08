@@ -4,8 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { useUIStore } from '@/store/uiStore';
 import { Breadcrumb } from './Breadcrumb';
-import { getInitials } from '@/lib/utils';
-import { cn } from '@/lib/utils';
+import { getInitials } from '@/lib/utils/utils';
+import { cn } from '@/lib/utils/utils';
 
 interface HeaderProps {
   className?: string;

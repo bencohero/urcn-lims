@@ -31,8 +31,8 @@ import {
   useReturnRequest,
 } from '@/hooks/useAccessRequests';
 import { useAuthStore } from '@/store/authStore';
-import { formatDate, formatDateTime } from '@/lib/utils';
-import { cn } from '@/lib/utils';
+import { formatDate, formatDateTime } from '@/lib/utils/utils';
+import { cn } from '@/lib/utils/utils';
 
 const REQUEST_TYPE_LABELS: Record<string, string> = {
   CONSULTATION: 'Consultation',

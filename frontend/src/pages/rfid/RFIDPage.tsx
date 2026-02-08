@@ -22,7 +22,7 @@ import { DataTable, type Column } from '@/components/ui/DataTable';
 import { Spinner } from '@/components/ui/Spinner';
 import { useToast } from '@/components/ui/Toast';
 import { useRFIDTags, useReadTag, useEncodeTag } from '@/hooks/useRFID';
-import { formatDate, formatDateTime } from '@/lib/utils';
+import { formatDate, formatDateTime } from '@/lib/utils/utils';
 import type { RFIDTag, RFIDFilters, ReadTagResponse } from '@/types';
 
 const columns: Column<RFIDTag>[] = [

@@ -10,7 +10,7 @@ import { DataTable, type Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Badge } from '@/components/ui/Badge';
 import { useAccessRequests } from '@/hooks/useAccessRequests';
-import { formatDate, formatRelative } from '@/lib/utils';
+import { formatDate, formatRelative } from '@/lib/utils/utils';
 import type { AccessRequest, AccessRequestFilters, AccessRequestStatus, Urgency } from '@/types';
 
 const URGENCY_VARIANTS: Record<Urgency, 'default' | 'info' | 'orange' | 'danger'> = {

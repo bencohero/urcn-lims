@@ -6,7 +6,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Spinner } from '@/components/ui/Spinner';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useEquipmentById } from '@/hooks/useEquipment';
-import { formatDate } from '@/lib/utils';
+import { formatDate } from '@/lib/utils/utils';
 
 const TYPE_LABELS: Record<string, string> = {
   CENTRIFUGE: 'Centrifugeuse',

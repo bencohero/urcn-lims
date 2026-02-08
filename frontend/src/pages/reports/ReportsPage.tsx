@@ -15,7 +15,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Spinner } from '@/components/ui/Spinner';
 import { useToast } from '@/components/ui/Toast';
 import { reportsApi } from '@/lib/api/reports';
-import { formatDate } from '@/lib/utils';
+import { formatDate } from '@/lib/utils/utils';
 import type { ReportType, ReportFormat } from '@/types';
 
 const REPORT_TYPES: { value: ReportType; label: string; description: string }[] = [

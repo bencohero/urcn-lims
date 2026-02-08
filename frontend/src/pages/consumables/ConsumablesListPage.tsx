@@ -10,7 +10,7 @@ import { DataTable, type Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Badge } from '@/components/ui/Badge';
 import { useConsumables } from '@/hooks/useConsumables';
-import { formatDate } from '@/lib/utils';
+import { formatDate } from '@/lib/utils/utils';
 import type { Consumable, ConsumableFilters, ConsumableType } from '@/types';
 
 const TYPE_OPTIONS = [
