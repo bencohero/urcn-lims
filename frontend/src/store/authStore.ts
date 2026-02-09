@@ -15,6 +15,9 @@ export const STORAGE_KEYS = {
 
   // 💤 idle timeout
   LAST_ACTIVITY: 'auth.last_activity',
+
+  // ⚠️ warning session
+  SESSION_WARNING: 'auth.session_warning',
 } as const;
 
 
