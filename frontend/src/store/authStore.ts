@@ -12,6 +12,9 @@ export const STORAGE_KEYS = {
   REFRESH_TOKEN: 'auth.refresh_token',
   LOGOUT: 'auth.logout',
   REFRESH_LOCK: 'auth.refresh_lock',
+
+  // 💤 idle timeout
+  LAST_ACTIVITY: 'auth.last_activity',
 } as const;
 
 
