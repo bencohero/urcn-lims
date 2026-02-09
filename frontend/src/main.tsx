@@ -7,7 +7,7 @@ import { queryClient } from '@/lib/queryClient';
 import { router } from '@/router';
 import { ToastProvider } from '@/components/ui/Toast';
 import '@/styles/index.css';
-import { IdleTimeoutListener } from './IdleTimeoutListener';
+import { IdleSessionManager } from './IdleSessionManager';
 import { AuthSyncListener } from './AuthSyncListener';
 
 if ('serviceWorker' in navigator) {
@@ -29,12 +29,12 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
         <AuthSyncListener />
-        <IdleTimeoutListener />
+        <IdleSessionManager />
         <RouterProvider router={router} />
       </ToastProvider>
       {import.meta.env.VITE_ENABLE_DEVTOOLS === 'true' && (
         <ReactQueryDevtools initialIsOpen={false} />
       )}
     </QueryClientProvider>
-  </React.StrictMode>,
+  </React.StrictMode>
 );
