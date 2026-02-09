@@ -8,6 +8,7 @@ import { router } from '@/router';
 import { ToastProvider } from '@/components/ui/Toast';
 import '@/styles/index.css';
 import { STORAGE_KEYS, useAuthStore } from './store/authStore';
+import { IdleTimeoutListener } from './IdleTimeoutListener';
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
@@ -53,6 +54,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
         <AuthSyncListener />
+        <IdleTimeoutListener />
         <RouterProvider router={router} />
       </ToastProvider>
       {import.meta.env.VITE_ENABLE_DEVTOOLS === 'true' && (
