@@ -1,12 +1,7 @@
 import axios, { AxiosRequestConfig } from 'axios';
 import { STORAGE_KEYS, useAuthStore } from '@/store/authStore';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL //|| 'http://localhost:8001/api/v1';
-
-
-if (!API_BASE_URL) {
-  throw new Error('VITE_API_URL is not defined in environment variables');
-}
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
 const REFRESH_LOCK_TTL = 10_000; // 10 secondes
 

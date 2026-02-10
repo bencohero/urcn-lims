@@ -11,6 +11,7 @@ import sys
 sys.path.insert(0, "/home/skamboule/claude-code/urcn-lims/backend")
 
 from common.models import User
+from common.models.site_user import SiteUser
 from common.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -36,8 +37,8 @@ class TokenService:
             select(User)
             .where(User.id == user_id)
             .options(
-                selectinload(User.site_users).selectinload("role"),
-                selectinload(User.site_users).selectinload("site"),
+                selectinload(User.site_users).selectinload(SiteUser.role),
+                selectinload(User.site_users).selectinload(SiteUser.site),
             )
         )
         result = await self.db.execute(query)

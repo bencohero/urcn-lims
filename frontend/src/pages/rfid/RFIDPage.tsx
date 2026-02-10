@@ -6,8 +6,6 @@ import {
   Plus,
   Radio,
   CheckCircle2,
-  XCircle,
-  AlertTriangle,
 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Card, CardContent, CardHeader } from '@/components/ui/Card';
@@ -19,7 +17,6 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Modal } from '@/components/ui/Modal';
 import { Tabs, TabContent } from '@/components/ui/Tabs';
 import { DataTable, type Column } from '@/components/ui/DataTable';
-import { Spinner } from '@/components/ui/Spinner';
 import { useToast } from '@/components/ui/Toast';
 import { useRFIDTags, useReadTag, useEncodeTag } from '@/hooks/useRFID';
 import { formatDate, formatDateTime } from '@/lib/utils/utils';

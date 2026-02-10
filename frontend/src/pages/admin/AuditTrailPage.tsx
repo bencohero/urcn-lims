@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import {
-  Shield,
   Search,
   CheckCircle2,
   AlertTriangle,
@@ -8,7 +7,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { Card, CardContent, CardHeader } from '@/components/ui/Card';
+import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';

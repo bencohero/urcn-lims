@@ -128,6 +128,17 @@ const SelectItem = forwardRef<
 ));
 SelectItem.displayName = 'SelectItem';
 
+// Radix Select.Item forbids value="", so we use a sentinel for "no selection" options
+const EMPTY_SENTINEL = '__empty__';
+
+function toInternalValue(v: string): string {
+  return v === '' ? EMPTY_SENTINEL : v;
+}
+
+function toExternalValue(v: string): string {
+  return v === EMPTY_SENTINEL ? '' : v;
+}
+
 function Select({
   options,
   value,
@@ -148,6 +159,9 @@ function Select({
   const computedState = error ? 'error' : state;
   const selectId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
 
+  const internalValue = value !== undefined ? toInternalValue(value) : undefined;
+  const internalDefault = defaultValue !== undefined ? toInternalValue(defaultValue) : undefined;
+
   return (
     <div className={cn('space-y-1.5', className)}>
       {label && (
@@ -156,9 +170,9 @@ function Select({
         </Label>
       )}
       <SelectPrimitive.Root
-        value={value}
-        defaultValue={defaultValue}
-        onValueChange={onValueChange}
+        value={internalValue}
+        defaultValue={internalDefault}
+        onValueChange={onValueChange ? (v) => onValueChange(toExternalValue(v)) : undefined}
         disabled={disabled}
         name={name}
       >
@@ -179,7 +193,7 @@ function Select({
         </SelectTrigger>
         <SelectContent>
           {options.map((option) => (
-            <SelectItem key={option.value} value={option.value} disabled={option.disabled}>
+            <SelectItem key={option.value || EMPTY_SENTINEL} value={toInternalValue(option.value)} disabled={option.disabled}>
               {option.label}
             </SelectItem>
           ))}

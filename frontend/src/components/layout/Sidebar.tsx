@@ -31,7 +31,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
   { label: "Demandes d'acces", to: '/access-requests', icon: ClipboardList },
   { label: 'RFID', to: '/rfid', icon: Tag, allowedRoles: ['ARCHIVIST', 'ADMIN'] },
   { label: 'Rapports', to: '/reports', icon: BarChart3 },
-  { label: 'Administration', to: '/admin', icon: Settings, allowedRoles: ['ADMIN'] },
+  { label: 'Administration', to: '/admin', icon: Settings  },
 ];
 
 interface SidebarProps {

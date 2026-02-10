@@ -1,6 +1,4 @@
 import * as Dialog from '@radix-ui/react-dialog';
-import { useAuthStore, STORAGE_KEYS } from '@/store/authStore';
-import { useEffect, useState } from 'react';
 
 interface Props {
   open: boolean;

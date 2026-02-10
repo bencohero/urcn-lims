@@ -24,6 +24,7 @@ function lazyPage(factory: () => Promise<{ default: ComponentType }>) {
 
 // Auth pages
 const LoginPage = () => lazyPage(() => import('@/pages/auth/LoginPage'));
+const ForgotPasswordPage = () => lazyPage(() => import('@/pages/auth/ForgotPasswordPage'));
 
 // Protected pages
 const DashboardPage = () => lazyPage(() => import('@/pages/DashboardPage'));
@@ -39,12 +40,17 @@ const RFIDPage = () => lazyPage(() => import('@/pages/rfid/RFIDPage'));
 const ReportsPage = () => lazyPage(() => import('@/pages/reports/ReportsPage'));
 const AdminUsersPage = () => lazyPage(() => import('@/pages/admin/AdminUsersPage'));
 const AuditTrailPage = () => lazyPage(() => import('@/pages/admin/AuditTrailPage'));
+const NotFoundPage = () => lazyPage(() => import('@/pages/NotFoundPage'));
 
 export const router = createBrowserRouter([
   // Public routes
   {
     path: '/login',
     element: <LoginPage />,
+  },
+  {
+    path: '/forgot-password',
+    element: <ForgotPasswordPage />,
   },
 
   // Protected routes
@@ -83,6 +89,10 @@ export const router = createBrowserRouter([
           { path: 'reports', element: <ReportsPage /> },
 
           // Admin (restricted)
+          { path: 'admin', element: <Navigate to="/admin/users" replace /> },
+          { path: 'admin/users', element: <AdminUsersPage /> },
+          { path: 'admin/audit-trail', element: <AuditTrailPage /> },
+          
           {
             element: <RoleRoute allowedRoles={['ADMIN']} />,
             children: [
@@ -97,5 +107,5 @@ export const router = createBrowserRouter([
   },
 
   // Catch-all
-  { path: '*', element: <Navigate to="/dashboard" replace /> },
+  { path: '*', element: <NotFoundPage /> },
 ]);

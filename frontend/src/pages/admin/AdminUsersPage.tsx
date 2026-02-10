@@ -2,8 +2,6 @@ import { useState } from 'react';
 import {
   Plus,
   Search,
-  Users,
-  Shield,
   MoreVertical,
   UserCheck,
   UserX,

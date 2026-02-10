@@ -3,7 +3,6 @@ import {
   BarChart3,
   Download,
   FileText,
-  Calendar,
   Clock,
 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -11,11 +10,8 @@ import { Card, CardContent, CardHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
-import { Badge } from '@/components/ui/Badge';
-import { Spinner } from '@/components/ui/Spinner';
 import { useToast } from '@/components/ui/Toast';
 import { reportsApi } from '@/lib/api/reports';
-import { formatDate } from '@/lib/utils/utils';
 import type { ReportType, ReportFormat } from '@/types';
 
 const REPORT_TYPES: { value: ReportType; label: string; description: string }[] = [
