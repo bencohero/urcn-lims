@@ -13,7 +13,7 @@ export function RoleRoute({ allowedRoles }: RoleRouteProps) {
     allowedRoles.includes(role.code),
   );
 
-  if (hasAccess) {
+  if (!hasAccess) {
     return <Navigate to="/dashboard" replace />;
   }
 

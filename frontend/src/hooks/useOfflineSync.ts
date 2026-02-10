@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useOfflineStore } from '@/store/offlineStore';
+import { syncManager } from '@/lib/db/sync';
 
 export function useOnlineStatus() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -26,9 +27,10 @@ export function useOfflineSync() {
     pendingActions,
     syncInProgress,
     addPendingAction,
-    removePendingAction,
     setSyncInProgress,
     setOnlineStatus,
+    setLastSyncAt,
+    clearPendingActions,
   } = useOfflineStore();
 
   useEffect(() => {
@@ -38,29 +40,31 @@ export function useOfflineSync() {
   const queueAction = useCallback(
     (type: string, method: string, args?: unknown[]) => {
       addPendingAction({ type, method, args });
+      // Also queue in IndexedDB for persistence across page reloads
+      syncManager.queueAction(type, method, args);
     },
     [addPendingAction]
   );
 
   const syncPending = useCallback(async () => {
-    if (syncInProgress || pendingActions.length === 0 || !isOnline) return;
+    if (syncInProgress || !isOnline) return;
 
     setSyncInProgress(true);
 
-    for (const pending of pendingActions) {
-      try {
-        // Each pending action would be replayed against the API
-        // This is a simplified version; real implementation would
-        // map type+action to actual API calls
-        removePendingAction(pending.id);
-      } catch {
-        // Will retry on next sync
-        break;
-      }
-    }
+    try {
+      const result = await syncManager.syncPendingActions();
 
-    setSyncInProgress(false);
-  }, [syncInProgress, pendingActions, isOnline, setSyncInProgress, removePendingAction]);
+      // Clear the Zustand store actions (IndexedDB ones already handled by SyncManager)
+      clearPendingActions();
+      setLastSyncAt(new Date().toISOString());
+
+      return result;
+    } catch {
+      // Will retry on next sync
+    } finally {
+      setSyncInProgress(false);
+    }
+  }, [syncInProgress, isOnline, setSyncInProgress, clearPendingActions, setLastSyncAt]);
 
   // Auto-sync when coming back online
   useEffect(() => {

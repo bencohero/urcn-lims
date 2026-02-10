@@ -26,16 +26,17 @@ export function useWebSocket({
   const reconnectTimer = useRef<ReturnType<typeof setTimeout>>();
   const [isConnected, setIsConnected] = useState(false);
   const [lastMessage, setLastMessage] = useState<WebSocketMessage | null>(null);
-  const accessToken = useAuthStore((s) => s.accessToken);
+  const accessToken = useAuthStore((s) => s.access_token);
 
   const connect = useCallback(() => {
     if (!enabled || !accessToken) return;
 
     try {
-      const wsUrl = `${url}?token=${accessToken}`;
-      ws.current = new WebSocket(wsUrl);
+      ws.current = new WebSocket(url);
 
       ws.current.onopen = () => {
+        // Authenticate via first message instead of URL query param (avoids token in logs)
+        ws.current?.send(JSON.stringify({ type: 'auth', payload: { token: accessToken } }));
         setIsConnected(true);
         reconnectCount.current = 0;
       };

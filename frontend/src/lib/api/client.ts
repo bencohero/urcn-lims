@@ -69,7 +69,7 @@ const releaseRefreshLock = () => {
 
 apiClient.interceptors.request.use(
   (config) => {
-    const token = useAuthStore.getState().accessToken;
+    const token = useAuthStore.getState().access_token;
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -100,7 +100,7 @@ apiClient.interceptors.response.use(
 
     originalRequest._retry = true;
 
-    const refreshToken = useAuthStore.getState().refreshToken;
+    const refreshToken = useAuthStore.getState().refresh_token;
 
     if (!refreshToken) {
       useAuthStore.getState().logout();
@@ -155,21 +155,21 @@ apiClient.interceptors.response.use(
 
     try {
       const response = await refreshClient.post<{
-        data: { accessToken: string };
+        data: { access_token: string };
       }>('/auth/refresh', {
         refresh_token: refreshToken,
       });
 
-      const { accessToken } = response.data.data;
+      const { access_token } = response.data.data;
 
       // 🔑 sync store + multi-onglets
-      useAuthStore.getState().setAccessToken(accessToken);
+      useAuthStore.getState().setAccessToken(access_token);
 
-      processQueue(undefined, accessToken);
+      processQueue(undefined, access_token);
 
       originalRequest.headers = {
         ...originalRequest.headers,
-        Authorization: `Bearer ${accessToken}`,
+        Authorization: `Bearer ${access_token}`,
       };
       return apiClient(originalRequest);
     } catch {
@@ -183,6 +183,7 @@ apiClient.interceptors.response.use(
       releaseRefreshLock();
     }
   },
+  
 );
 
 export default apiClient;

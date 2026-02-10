@@ -27,12 +27,12 @@ export const STORAGE_KEYS = {
 
 interface AuthState {
   user: User | null;
-  accessToken: string | null;
-  refreshToken: string | null;
+  access_token: string | null;
+  refresh_token: string | null;
   isAuthenticated: boolean;
 
-  setAuth: (user: User, accessToken: string, refreshToken: string) => void;
-  setAccessToken: (accessToken: string) => void;
+  setAuth: (user: User, access_token: string, refresh_token: string) => void;
+  setAccessToken: (access_token: string | null) => void;
   logout: () => void;
 
   hasPermission: (resource: string, action: string) => boolean;
@@ -47,30 +47,30 @@ export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
       user: null,
-      accessToken: null,
-      refreshToken: null,
+      access_token: null,
+      refresh_token: null,
       isAuthenticated: false,
 
-      setAuth: (user, accessToken, refreshToken) => {
-        localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, accessToken);
-        localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
+      setAuth: (user, access_token, refresh_token) => {
+        localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, access_token);
+        localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refresh_token);
         set({ 
           user,
-          accessToken, 
-          refreshToken, 
+          access_token, 
+          refresh_token, 
           isAuthenticated: true 
         });
       },
 
-      setAccessToken: (accessToken) => {
-        if(accessToken){
-          localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, accessToken);
+      setAccessToken: (access_token: string | null) => {
+        if(access_token){
+          localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, access_token);
         }else {
           localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
         }
         set({ 
-          accessToken,
-          isAuthenticated: Boolean(accessToken) 
+          access_token,
+          isAuthenticated: Boolean(access_token) 
         });
       },
 
@@ -82,8 +82,8 @@ export const useAuthStore = create<AuthState>()(
         localStorage.setItem(STORAGE_KEYS.LOGOUT, Date.now().toString());
         set({
           user: null,
-          accessToken: null,
-          refreshToken: null,
+          access_token: null,
+          refresh_token: null,
           isAuthenticated: false,
         })
       },
@@ -108,8 +108,8 @@ export const useAuthStore = create<AuthState>()(
       name: 'auth-storage',
       partialize: (state) => ({
         user: state.user,
-        accessToken: state.accessToken,
-        refreshToken: state.refreshToken,
+        access_token: state.access_token,
+        refresh_token: state.refresh_token,
         isAuthenticated: state.isAuthenticated,
       }),
     },
