@@ -42,7 +42,6 @@ class DocumentService:
         """Get documents with filters and pagination."""
         query = (
             select(Document)
-            .join(StoredItem)
             .options(
                 selectinload(Document.study),
                 selectinload(Document.site),
@@ -84,7 +83,7 @@ class DocumentService:
             query = query.where(and_(*filters))
 
         # Count total
-        count_query = select(func.count()).select_from(Document).join(StoredItem)
+        count_query = select(func.count()).select_from(Document)
         if filters:
             count_query = count_query.where(and_(*filters))
         total_result = await self.db.execute(count_query)

@@ -69,6 +69,11 @@ const releaseRefreshLock = () => {
 
 apiClient.interceptors.request.use(
   (config) => {
+    // Ensure trailing slash to avoid FastAPI 307 redirects that strip auth headers
+    if (config.url && !config.url.endsWith('/') && !config.url.includes('?')) {
+      config.url += '/';
+    }
+
     const token = useAuthStore.getState().access_token;
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;

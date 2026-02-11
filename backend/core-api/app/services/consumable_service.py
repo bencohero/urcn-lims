@@ -39,7 +39,6 @@ class ConsumableService:
         """Get consumables with filters and pagination."""
         query = (
             select(Consumable)
-            .join(StoredItem)
             .options(
                 selectinload(Consumable.study),
                 selectinload(Consumable.site),
@@ -67,7 +66,7 @@ class ConsumableService:
             query = query.where(and_(*filters))
 
         # Count
-        count_query = select(func.count()).select_from(Consumable).join(StoredItem)
+        count_query = select(func.count()).select_from(Consumable)
         if filters:
             count_query = count_query.where(and_(*filters))
         total_result = await self.db.execute(count_query)
