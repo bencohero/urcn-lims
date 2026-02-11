@@ -10,7 +10,7 @@ sys.path.insert(0, "/home/skamboule/claude-code/urcn-lims/backend")
 
 from common.config import get_settings
 from common.database import init_db, close_db
-from common.middleware import setup_error_handler
+from common.middleware import setup_error_handlers
 from common.utils.logger import get_logger
 
 from .routes import reports
@@ -49,7 +49,7 @@ app.add_middleware(
 )
 
 # Error handler
-setup_error_handler(app)
+setup_error_handlers(app)
 
 # Routes
 app.include_router(reports.router, prefix="/api/v1/reports", tags=["Reports"])
