@@ -21,7 +21,7 @@ from ..services.movement_service import MovementService
 router = APIRouter()
 
 
-@router.get("/", response_model=PaginatedResponse)
+@router.get("", response_model=PaginatedResponse)
 async def get_movements(
     stored_item_id: Optional[UUID] = Query(None),
     movement_type: Optional[str] = Query(None),
@@ -53,7 +53,7 @@ async def get_movements(
     )
 
 
-@router.post("/", response_model=APIResponse[MovementResponse], status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=APIResponse[MovementResponse], status_code=status.HTTP_201_CREATED)
 async def create_movement(
     movement_data: MovementCreate,
     db: AsyncSession = Depends(get_db),

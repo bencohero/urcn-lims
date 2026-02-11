@@ -21,7 +21,7 @@ from ..services.equipment_service import EquipmentService
 router = APIRouter()
 
 
-@router.get("/", response_model=PaginatedResponse)
+@router.get("", response_model=PaginatedResponse)
 async def get_equipment(
     study_id: Optional[UUID] = Query(None),
     site_id: Optional[UUID] = Query(None),
@@ -53,7 +53,7 @@ async def get_equipment(
     )
 
 
-@router.post("/", response_model=APIResponse[EquipmentResponse], status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=APIResponse[EquipmentResponse], status_code=status.HTTP_201_CREATED)
 async def create_equipment(
     equipment_data: EquipmentCreate,
     db: AsyncSession = Depends(get_db),

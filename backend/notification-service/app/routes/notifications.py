@@ -20,7 +20,7 @@ from ..services.notification_service import NotificationService
 router = APIRouter()
 
 
-@router.get("/", response_model=PaginatedResponse)
+@router.get("", response_model=PaginatedResponse)
 async def list_notifications(
     is_read: Optional[bool] = Query(None),
     notification_type: Optional[str] = Query(None),

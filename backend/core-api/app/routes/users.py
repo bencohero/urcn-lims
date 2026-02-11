@@ -51,7 +51,7 @@ async def get_current_user_profile(
     )
 
 
-@router.get("/", response_model=PaginatedResponse)
+@router.get("", response_model=PaginatedResponse)
 async def get_users(
     is_active: Optional[bool] = Query(None),
     search: Optional[str] = Query(None),
@@ -76,7 +76,7 @@ async def get_users(
     )
 
 
-@router.post("/", response_model=APIResponse[UserResponse], status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=APIResponse[UserResponse], status_code=status.HTTP_201_CREATED)
 async def create_user(
     user_data: UserCreate,
     db: AsyncSession = Depends(get_db),

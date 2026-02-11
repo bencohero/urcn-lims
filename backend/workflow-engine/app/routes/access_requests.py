@@ -28,7 +28,7 @@ from ..services.workflow_service import WorkflowService
 router = APIRouter()
 
 
-@router.get("/", response_model=PaginatedResponse)
+@router.get("", response_model=PaginatedResponse)
 async def list_access_requests(
     status: Optional[str] = Query(None),
     requester_id: Optional[UUID] = Query(None),
@@ -71,7 +71,7 @@ async def list_access_requests(
     )
 
 
-@router.post("/", response_model=APIResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=APIResponse, status_code=status.HTTP_201_CREATED)
 async def create_access_request(
     request_data: AccessRequestCreate,
     db: AsyncSession = Depends(get_db),

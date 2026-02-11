@@ -20,7 +20,7 @@ from ..services.site_service import SiteService
 router = APIRouter()
 
 
-@router.get("/", response_model=PaginatedResponse)
+@router.get("", response_model=PaginatedResponse)
 async def get_sites(
     study_id: Optional[UUID] = Query(None),
     status: Optional[str] = Query(None),
@@ -48,7 +48,7 @@ async def get_sites(
     )
 
 
-@router.post("/", response_model=APIResponse[SiteResponse], status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=APIResponse[SiteResponse], status_code=status.HTTP_201_CREATED)
 async def create_site(
     site_data: SiteCreate,
     db: AsyncSession = Depends(get_db),

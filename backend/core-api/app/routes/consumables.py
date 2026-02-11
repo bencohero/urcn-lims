@@ -22,7 +22,7 @@ from ..services.consumable_service import ConsumableService
 router = APIRouter()
 
 
-@router.get("/", response_model=PaginatedResponse)
+@router.get("", response_model=PaginatedResponse)
 async def get_consumables(
     study_id: Optional[UUID] = Query(None),
     site_id: Optional[UUID] = Query(None),
@@ -54,7 +54,7 @@ async def get_consumables(
     )
 
 
-@router.post("/", response_model=APIResponse[ConsumableResponse], status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=APIResponse[ConsumableResponse], status_code=status.HTTP_201_CREATED)
 async def create_consumable(
     consumable_data: ConsumableCreate,
     db: AsyncSession = Depends(get_db),
