@@ -159,28 +159,28 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KPICard
           title="Documents"
-          value={stats?.inventory.total_documents ?? 0}
+          value={stats?.inventory?.total_documents ?? 0}
           icon={<FileText className="h-6 w-6 text-blue-600" />}
           iconBg="bg-blue-100"
           href="/documents"
         />
         <KPICard
           title="Equipements"
-          value={stats?.inventory.total_equipment ?? 0}
+          value={stats?.inventory?.total_equipment ?? 0}
           icon={<Microscope className="h-6 w-6 text-purple-600" />}
           iconBg="bg-purple-100"
           href="/equipment"
         />
         <KPICard
           title="Consommables"
-          value={stats?.inventory.total_consumables ?? 0}
+          value={stats?.inventory?.total_consumables ?? 0}
           icon={<Beaker className="h-6 w-6 text-green-600" />}
           iconBg="bg-green-100"
           href="/consumables"
         />
         <KPICard
           title="Demandes en attente"
-          value={stats?.access_requests.pending ?? 0}
+          value={stats?.access_requests?.pending ?? 0}
           icon={<ClipboardList className="h-6 w-6 text-orange-600" />}
           iconBg="bg-orange-100"
           href="/access-requests"
@@ -199,25 +199,25 @@ export default function DashboardPage() {
           <CardContent className="space-y-3">
             <AlertCard
               title="Calibrations a venir"
-              count={stats?.alerts.calibration_due_soon ?? 0}
+              count={stats?.alerts?.calibration_due_soon ?? 0}
               variant="warning"
               description="Equipements necessitant une calibration dans les 30 jours"
             />
             <AlertCard
               title="Expirations proches"
-              count={stats?.alerts.items_expiring_30_days ?? 0}
+              count={stats?.alerts?.items_expiring_30_days ?? 0}
               variant="warning"
               description="Consommables expirant dans les 30 jours"
             />
             <AlertCard
               title="Retours en retard"
-              count={stats?.alerts.overdue_returns ?? 0}
+              count={stats?.alerts?.overdue_returns ?? 0}
               variant="danger"
               description="Articles non retournes dans les delais"
             />
-            {(stats?.alerts.calibration_due_soon ?? 0) === 0 &&
-              (stats?.alerts.items_expiring_30_days ?? 0) === 0 &&
-              (stats?.alerts.overdue_returns ?? 0) === 0 && (
+            {(stats?.alerts?.calibration_due_soon ?? 0) === 0 &&
+              (stats?.alerts?.items_expiring_30_days ?? 0) === 0 &&
+              (stats?.alerts?.overdue_returns ?? 0) === 0 && (
                 <p className="text-sm text-gray-500 text-center py-4">Aucune alerte</p>
               )}
           </CardContent>
@@ -233,18 +233,18 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
-              <StatBlock label="En attente" value={stats?.access_requests.pending ?? 0} variant="warning" />
-              <StatBlock label="Approuvees" value={stats?.access_requests.approved ?? 0} variant="success" />
-              <StatBlock label="En retard" value={stats?.access_requests.overdue ?? 0} variant="danger" />
-              <StatBlock label="Remplies" value={stats?.access_requests.fulfilled ?? 0} variant="info" />
+              <StatBlock label="En attente" value={stats?.access_requests?.pending ?? 0} variant="warning" />
+              <StatBlock label="Approuvees" value={stats?.access_requests?.approved ?? 0} variant="success" />
+              <StatBlock label="En retard" value={stats?.access_requests?.overdue ?? 0} variant="danger" />
+              <StatBlock label="Remplies" value={stats?.access_requests?.fulfilled ?? 0} variant="info" />
             </div>
-            {stats?.access_requests.average_approval_time_hours !== undefined && (
+            {stats?.access_requests?.average_approval_time_hours !== undefined && (
               <div className="flex items-center gap-2 rounded-lg bg-gray-50 p-3">
                 <Clock className="h-4 w-4 text-gray-400" />
                 <span className="text-sm text-gray-600">
                   Delai moyen d'approbation:{' '}
                   <span className="font-medium text-gray-900">
-                    {stats.access_requests.average_approval_time_hours.toFixed(1)}h
+                    {stats?.access_requests?.average_approval_time_hours?.toFixed(1)}h
                   </span>
                 </span>
               </div>
@@ -268,20 +268,20 @@ export default function DashboardPage() {
           <CardContent className="space-y-4">
             <CapacityBar
               label="Utilisation globale"
-              percent={stats?.storage_capacity.usage_percent ?? 0}
+              percent={stats?.storage_capacity?.usage_percent ?? 0}
             />
             <div className="rounded-lg bg-gray-50 p-3">
               <p className="text-sm text-gray-600">
                 <span className="font-medium text-gray-900">
-                  {stats?.storage_capacity.current_usage.toLocaleString('fr-FR') ?? 0}
+                  {stats?.storage_capacity?.current_usage?.toLocaleString('fr-FR') ?? 0}
                 </span>
                 {' / '}
-                {stats?.storage_capacity.total_capacity.toLocaleString('fr-FR') ?? 0} emplacements utilises
+                {stats?.storage_capacity?.total_capacity?.toLocaleString('fr-FR') ?? 0} emplacements utilises
               </p>
             </div>
-            {(stats?.storage_capacity.locations_above_90_percent ?? 0) > 0 && (
+            {(stats?.storage_capacity?.locations_above_90_percent ?? 0) > 0 && (
               <Badge variant="danger">
-                {stats?.storage_capacity.locations_above_90_percent} emplacement(s) &gt; 90%
+                {stats?.storage_capacity?.locations_above_90_percent} emplacement(s) &gt; 90%
               </Badge>
             )}
 
@@ -290,15 +290,15 @@ export default function DashboardPage() {
               <h3 className="text-sm font-medium text-gray-900 mb-3">Mouvements (30 jours)</h3>
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div className="rounded-lg bg-green-50 p-2">
-                  <p className="text-lg font-bold text-green-700">{stats?.movements.entries ?? 0}</p>
+                  <p className="text-lg font-bold text-green-700">{stats?.movements?.entries ?? 0}</p>
                   <p className="text-xs text-green-600">Entrees</p>
                 </div>
                 <div className="rounded-lg bg-red-50 p-2">
-                  <p className="text-lg font-bold text-red-700">{stats?.movements.exits ?? 0}</p>
+                  <p className="text-lg font-bold text-red-700">{stats?.movements?.exits ?? 0}</p>
                   <p className="text-xs text-red-600">Sorties</p>
                 </div>
                 <div className="rounded-lg bg-blue-50 p-2">
-                  <p className="text-lg font-bold text-blue-700">{stats?.movements.returns ?? 0}</p>
+                  <p className="text-lg font-bold text-blue-700">{stats?.movements?.returns ?? 0}</p>
                   <p className="text-xs text-blue-600">Retours</p>
                 </div>
               </div>
