@@ -2,6 +2,27 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { User, RoleCode } from '@/types';
 
+/**
+ * Decode JWT payload without verification (client-side expiry check only).
+ * Returns the exp timestamp in seconds, or null if unparseable.
+ */
+function getTokenExp(token: string): number | null {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return typeof payload.exp === 'number' ? payload.exp : null;
+  } catch {
+    return null;
+  }
+}
+
+function isTokenExpired(token: string | null): boolean {
+  if (!token) return true;
+  const exp = getTokenExp(token);
+  if (exp === null) return true;
+  // Consider expired if less than 30s remaining (buffer for network latency)
+  return exp * 1000 < Date.now() + 30_000;
+}
+
 
 /* ================================
    Storage keys (GLOBAL)
@@ -112,6 +133,15 @@ export const useAuthStore = create<AuthState>()(
         refresh_token: state.refresh_token,
         isAuthenticated: state.isAuthenticated,
       }),
+      onRehydrateStorage: () => (state) => {
+        if (!state) return;
+        // On page reload, check if the persisted access token is expired.
+        // If so, clear auth state to avoid firing API calls with a dead token
+        // (which would trigger an unnecessary refresh cycle).
+        if (state.isAuthenticated && isTokenExpired(state.access_token)) {
+          state.logout();
+        }
+      },
     },
   ),
 );
