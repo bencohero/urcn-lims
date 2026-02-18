@@ -21,7 +21,7 @@ from ..services.audit_service import AuditService
 router = APIRouter()
 
 
-@router.get("/", response_model=PaginatedResponse)
+@router.get("", response_model=PaginatedResponse)
 async def get_audit_records(
     user_id: Optional[UUID] = Query(None),
     event_type: Optional[str] = Query(None),

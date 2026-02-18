@@ -27,7 +27,7 @@ from ..services.access_request_service import AccessRequestService
 router = APIRouter()
 
 
-@router.get("/", response_model=PaginatedResponse)
+@router.get("", response_model=PaginatedResponse)
 async def get_access_requests(
     status_filter: Optional[str] = Query(None, alias="status"),
     requester_id: Optional[UUID] = Query(None),
@@ -57,7 +57,7 @@ async def get_access_requests(
     )
 
 
-@router.post("/", response_model=APIResponse[AccessRequestResponse], status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=APIResponse[AccessRequestResponse], status_code=status.HTTP_201_CREATED)
 async def create_access_request(
     request_data: AccessRequestCreate,
     db: AsyncSession = Depends(get_db),

@@ -19,7 +19,7 @@ from ..services.search_service import SearchService
 router = APIRouter()
 
 
-@router.get("/", response_model=APIResponse)
+@router.get("", response_model=APIResponse)
 async def global_search(
     q: str = Query(..., min_length=2, description="Search query"),
     types: Optional[str] = Query(None, description="Comma-separated types: document,equipment,consumable"),

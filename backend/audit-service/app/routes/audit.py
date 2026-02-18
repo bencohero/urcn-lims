@@ -21,7 +21,7 @@ from ..services.integrity_service import IntegrityService
 router = APIRouter()
 
 
-@router.get("/", response_model=PaginatedResponse)
+@router.get("", response_model=PaginatedResponse)
 async def get_audit_trail(
     user_id: Optional[UUID] = Query(None),
     event_type: Optional[str] = Query(None),

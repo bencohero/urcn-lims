@@ -20,7 +20,7 @@ from ..services.study_service import StudyService
 router = APIRouter()
 
 
-@router.get("/", response_model=PaginatedResponse)
+@router.get("", response_model=PaginatedResponse)
 async def get_studies(
     status: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
@@ -50,7 +50,7 @@ async def get_studies(
     )
 
 
-@router.post("/", response_model=APIResponse[StudyResponse], status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=APIResponse[StudyResponse], status_code=status.HTTP_201_CREATED)
 async def create_study(
     study_data: StudyCreate,
     db: AsyncSession = Depends(get_db),

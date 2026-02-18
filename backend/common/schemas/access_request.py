@@ -40,6 +40,13 @@ class AccessRequestReject(BaseSchema):
     review_notes: str = Field(min_length=10, max_length=1000)
 
 
+class AccessRequestFulfill(BaseSchema):
+    """Schema for marking an access request as fulfilled (item handed out)."""
+
+    actual_access_date: datetime = Field(default_factory=datetime.utcnow)
+    notes: Optional[str] = None
+
+
 class AccessRequestExtend(BaseSchema):
     """Schema for requesting extension."""
 

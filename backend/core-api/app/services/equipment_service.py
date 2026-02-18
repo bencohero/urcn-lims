@@ -39,7 +39,6 @@ class EquipmentService:
         """Get equipment with filters and pagination."""
         query = (
             select(Equipment)
-            .join(StoredItem)
             .options(
                 selectinload(Equipment.study),
                 selectinload(Equipment.site),
@@ -67,7 +66,7 @@ class EquipmentService:
             query = query.where(and_(*filters))
 
         # Count
-        count_query = select(func.count()).select_from(Equipment).join(StoredItem)
+        count_query = select(func.count()).select_from(Equipment)
         if filters:
             count_query = count_query.where(and_(*filters))
         total_result = await self.db.execute(count_query)

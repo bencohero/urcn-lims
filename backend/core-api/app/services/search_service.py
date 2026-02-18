@@ -92,7 +92,6 @@ class SearchService:
         """Search documents."""
         query = (
             select(Document)
-            .join(StoredItem)
             .options(
                 selectinload(Document.study),
                 selectinload(Document.site),
@@ -142,7 +141,6 @@ class SearchService:
         """Search equipment."""
         query = (
             select(Equipment)
-            .join(StoredItem)
             .options(
                 selectinload(Equipment.study),
                 selectinload(Equipment.site),
@@ -195,7 +193,6 @@ class SearchService:
         """Search consumables."""
         query = (
             select(Consumable)
-            .join(StoredItem)
             .options(
                 selectinload(Consumable.study),
                 selectinload(Consumable.site),
