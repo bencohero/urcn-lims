@@ -102,14 +102,14 @@ services:
   # Auth Service
   auth-service:
     build:
-      context: ./backend/auth-service
-      dockerfile: Dockerfile
+      context: ./backend
+      dockerfile: auth-service/Dockerfile
     container_name: clinical-auth-service
     environment:
       DATABASE_URL: postgresql+asyncpg://clinical_admin:${POSTGRES_PASSWORD}@postgres-master:5432/clinical_storage
       REDIS_URL: redis://redis:6379/0
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
-      JWT_ALGORITHM: RS256
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
     ports:
       - "8000:8000"
     depends_on:
@@ -126,8 +126,8 @@ services:
   # Core API Service
   core-api:
     build:
-      context: ./backend/core-api
-      dockerfile: Dockerfile
+      context: ./backend
+      dockerfile: core-api/Dockerfile
     container_name: clinical-core-api
     environment:
       DATABASE_URL: postgresql+asyncpg://clinical_admin:${POSTGRES_PASSWORD}@postgres-master:5432/clinical_storage
@@ -148,8 +148,8 @@ services:
   # RFID Service
   rfid-service:
     build:
-      context: ./backend/rfid-service
-      dockerfile: Dockerfile
+      context: ./backend
+      dockerfile: rfid-service/Dockerfile
     container_name: clinical-rfid-service
     environment:
       DATABASE_URL: postgresql+asyncpg://clinical_admin:${POSTGRES_PASSWORD}@postgres-master:5432/clinical_storage
@@ -169,8 +169,8 @@ services:
   # Workflow Engine
   workflow-engine:
     build:
-      context: ./backend/workflow-engine
-      dockerfile: Dockerfile
+      context: ./backend
+      dockerfile: workflow-engine/Dockerfile
     container_name: clinical-workflow-engine
     environment:
       DATABASE_URL: postgresql+asyncpg://clinical_admin:${POSTGRES_PASSWORD}@postgres-master:5432/clinical_storage
@@ -191,8 +191,8 @@ services:
   # Notification Service
   notification-service:
     build:
-      context: ./backend/notification-service
-      dockerfile: Dockerfile
+      context: ./backend
+      dockerfile: notification-service/Dockerfile
     container_name: clinical-notification-service
     environment:
       DATABASE_URL: postgresql+asyncpg://clinical_admin:${POSTGRES_PASSWORD}@postgres-master:5432/clinical_storage
@@ -217,8 +217,8 @@ services:
   # Reporting Service
   reporting-service:
     build:
-      context: ./backend/reporting-service
-      dockerfile: Dockerfile
+      context: ./backend
+      dockerfile: reporting-service/Dockerfile
     container_name: clinical-reporting-service
     environment:
       DATABASE_URL: postgresql+asyncpg://clinical_admin:${POSTGRES_PASSWORD}@postgres-master:5432/clinical_storage
@@ -241,8 +241,8 @@ services:
   # Audit Service
   audit-service:
     build:
-      context: ./backend/audit-service
-      dockerfile: Dockerfile
+      context: ./backend
+      dockerfile: audit-service/Dockerfile
     container_name: clinical-audit-service
     environment:
       DATABASE_URL: postgresql+asyncpg://clinical_admin:${POSTGRES_PASSWORD}@postgres-master:5432/clinical_storage
@@ -261,8 +261,8 @@ services:
   # Celery Worker
   celery-worker:
     build:
-      context: ./backend/notification-service
-      dockerfile: Dockerfile
+      context: ./backend
+      dockerfile: notification-service/Dockerfile
     container_name: clinical-celery-worker
     command: celery -A app.celery worker --loglevel=info
     environment:
@@ -279,7 +279,7 @@ services:
       - ./backend/notification-service:/app
     restart: unless-stopped
 
-  # Frontend (Next.js)
+  # Frontend (React/Vite)
   frontend:
     build:
       context: ./frontend

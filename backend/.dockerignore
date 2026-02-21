@@ -1,0 +1,35 @@
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Python cache
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+
+# Test artifacts
+**/.pytest_cache/
+**/.mypy_cache/
+**/htmlcov/
+**/.coverage
+
+# Development tools
+**/.vscode/
+**/.idea/
+**/.DS_Store
+
+# Secrets — never embed in image
+**/.env
+**/.env.local
+**/.env.dev
+**/.env.prod
+!**/.env.example
+
+# Tests — not needed in production image
+**/tests/
+
+# Git
+.git/
+.gitignore

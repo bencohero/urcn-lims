@@ -1,0 +1,28 @@
+# ============================================================
+# audit-service — requirements.txt
+# ============================================================
+# Note: no extra dependencies — the audit service is intentionally
+# kept minimal. It relies solely on the base stack to maximize
+# stability and reduce the attack surface of the immutable
+# audit trail.
+
+# Core Framework
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+
+# Data Validation
+pydantic==2.5.3
+pydantic-settings==2.1.0
+
+# Database
+sqlalchemy[asyncio]==2.0.25
+asyncpg==0.29.0
+
+# Auth & Security
+python-jose[cryptography]==3.3.0
+
+# Configuration
+python-dotenv==1.0.0
+
+# Logging
+structlog==24.1.0
