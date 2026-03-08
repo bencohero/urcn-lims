@@ -4,7 +4,7 @@ from datetime import date
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import Field, AliasChoices
 
 from .base import BaseSchema, IDTimestampSchema
 
@@ -45,7 +45,7 @@ class StudyUpdate(BaseSchema):
     status: Optional[str] = Field(
         default=None, pattern="^(ACTIVE|PAUSED|COMPLETED|CANCELLED)$"
     )
-    metadata: Optional[Dict[str, Any]] = None
+    meta_data: Optional[Dict[str, Any]] = None
 
 
 class StudyStatistics(BaseSchema):
@@ -63,4 +63,9 @@ class StudyResponse(IDTimestampSchema, StudyBase):
     status: str
     sites_count: int = 0
     statistics: Optional[StudyStatistics] = None
-    metadata: Optional[Dict[str, Any]] = None
+    # validation_alias reads study.meta_data from the ORM object;
+    # the field is serialized as "metadata" in JSON responses.
+    metadata: Optional[Dict[str, Any]] = Field(
+        default=None,
+        validation_alias=AliasChoices("meta_data", "metadata"),
+    )

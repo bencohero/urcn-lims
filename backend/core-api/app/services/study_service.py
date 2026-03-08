@@ -4,6 +4,7 @@ from typing import List, Optional, Tuple
 from uuid import UUID
 
 from sqlalchemy import and_, func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -110,7 +111,11 @@ class StudyService:
             new_values=study_data.model_dump(mode="json"),
         )
 
-        await self.db.commit()
+        try:
+            await self.db.commit()
+        except IntegrityError:
+            await self.db.rollback()
+            raise
         await self.db.refresh(study)
         return study
 
@@ -123,7 +128,7 @@ class StudyService:
             return None
 
         update_data = study_data.model_dump(exclude_unset=True)
-        old_values = {k: getattr(study, k) for k in update_data.keys()}
+        old_values = {k: getattr(study, k, None) for k in update_data.keys()}
 
         for key, value in update_data.items():
             setattr(study, key, value)

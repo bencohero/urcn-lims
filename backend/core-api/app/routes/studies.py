@@ -4,6 +4,7 @@ from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import sys
@@ -58,7 +59,13 @@ async def create_study(
 ):
     """Create a new study."""
     service = StudyService(db)
-    study = await service.create_study(study_data, current_user)
+    try:
+        study = await service.create_study(study_data, current_user)
+    except IntegrityError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Protocol number already exists",
+        )
     return APIResponse(
         success=True,
         data=StudyResponse.model_validate(study),
