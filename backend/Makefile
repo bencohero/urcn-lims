@@ -51,7 +51,8 @@ dev:
 
 
 dev-rebuild:
-	docker compose --env-file .env.dev up -d --build 
+	@read -p "service name: " name; \
+	docker compose --env-file .env.dev up -d --build $$name
 	@echo "Infrastructure services started"
 	@echo "Run services individually with uvicorn"
 

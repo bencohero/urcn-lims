@@ -1,6 +1,6 @@
 """User service."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional, Tuple
 from uuid import UUID
 
@@ -133,7 +133,7 @@ class UserService:
             phone=user_data.phone,
             is_active=user_data.is_active,
             is_superuser=user_data.is_superuser,
-            password_changed_at=datetime.utcnow(),
+            password_changed_at=datetime.now(timezone.utc),
             created_by=current_user.id,
         )
         self.db.add(user)
@@ -262,7 +262,7 @@ class UserService:
             site_id=site_id,
             role_id=role_id,
             is_primary=is_primary,
-            assigned_at=datetime.utcnow(),
+            assigned_at=datetime.now(timezone.utc),
             created_by=current_user.id,
         )
         self.db.add(site_user)
@@ -307,7 +307,7 @@ class UserService:
         if not site_user:
             return None
 
-        site_user.unassigned_at = datetime.utcnow()
+        site_user.unassigned_at = datetime.now(timezone.utc)
 
         await self.audit_service.log_action(
             event_type="UPDATE",
