@@ -47,13 +47,14 @@ interface SidebarProps {
 }
 
 export function Sidebar({ className }: SidebarProps) {
-  const { user } = useAuthStore();
+  const { user, isSuperUser } = useAuthStore();
   const { sidebarOpen, setSidebarOpen } = useUIStore();
 
   const userRoles = user?.roles?.map((role) => role.code) ?? [];
 
   const filteredItems = NAVIGATION_ITEMS.filter((item) => {
     if (!item.allowedRoles) return true;
+    if (isSuperUser()) return true;
     return item.allowedRoles.some((role) => userRoles.includes(role));
   });
 
