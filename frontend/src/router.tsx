@@ -41,6 +41,19 @@ const AdminUsersPage = lazyPage(() => import('@/pages/admin/AdminUsersPage'));
 const AuditTrailPage = lazyPage(() => import('@/pages/admin/AuditTrailPage'));
 const NotFoundPage = lazyPage(() => import('@/pages/NotFoundPage'));
 
+// Priority 2 pages
+const StudiesListPage = lazyPage(() => import('@/pages/studies/StudiesListPage'));
+const StudyDetailPage = lazyPage(() => import('@/pages/studies/StudyDetailPage'));
+const SitesListPage = lazyPage(() => import('@/pages/sites/SitesListPage'));
+const SiteDetailPage = lazyPage(() => import('@/pages/sites/SiteDetailPage'));
+const StorageLocationsPage = lazyPage(() => import('@/pages/storage/StorageLocationsPage'));
+const MovementsPage = lazyPage(() => import('@/pages/movements/MovementsPage'));
+
+// Priority 3 pages
+const NotificationsPage = lazyPage(() => import('@/pages/notifications/NotificationsPage'));
+const ProfilePage = lazyPage(() => import('@/pages/profile/ProfilePage'));
+const SettingsPage = lazyPage(() => import('@/pages/settings/SettingsPage'));
+
 export const router = createBrowserRouter([
   // Public routes
   {
@@ -84,8 +97,27 @@ export const router = createBrowserRouter([
             children: [{ path: 'rfid', element: RFIDPage }],
           },
 
+          // Studies
+          { path: 'studies', element: StudiesListPage },
+          { path: 'studies/:id', element: StudyDetailPage },
+
+          // Sites
+          { path: 'sites', element: SitesListPage },
+          { path: 'sites/:id', element: SiteDetailPage },
+
+          // Storage Locations & Containers
+          { path: 'storage', element: StorageLocationsPage },
+
+          // Movements
+          { path: 'movements', element: MovementsPage },
+
           // Reports
           { path: 'reports', element: ReportsPage },
+
+          // Priority 3
+          { path: 'notifications', element: NotificationsPage },
+          { path: 'profile', element: ProfilePage },
+          { path: 'settings', element: SettingsPage },
 
           // Admin (restricted — single definition, guarded by RoleRoute)
           {

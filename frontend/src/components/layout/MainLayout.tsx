@@ -3,6 +3,8 @@ import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { Footer } from './Footer';
 import { OfflineBanner } from '@/components/features/shared/OfflineBanner';
+import { SearchModal } from '@/components/ui/SearchModal';
+import { NotificationsPanel } from '@/components/features/notifications/NotificationsPanel';
 import { useOfflineStore } from '@/store/offlineStore';
 import { useUIStore } from '@/store/uiStore';
 import { cn } from '@/lib/utils/utils';
@@ -37,6 +39,12 @@ export function MainLayout() {
         {/* Footer */}
         <Footer />
       </div>
+
+      {/* Global search modal */}
+      <SearchModal />
+
+      {/* Notifications panel */}
+      <NotificationsPanel />
     </div>
   );
 }

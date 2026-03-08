@@ -9,6 +9,10 @@ import {
   BarChart3,
   Settings,
   X,
+  FlaskConical,
+  Building2,
+  Archive,
+  ArrowRightLeft,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
@@ -25,13 +29,17 @@ interface NavigationItem {
 
 const NAVIGATION_ITEMS: NavigationItem[] = [
   { label: 'Tableau de bord', to: '/dashboard', icon: LayoutDashboard },
+  { label: 'Etudes', to: '/studies', icon: FlaskConical },
+  { label: 'Sites', to: '/sites', icon: Building2 },
   { label: 'Documents', to: '/documents', icon: FileText },
   { label: 'Equipements', to: '/equipment', icon: Microscope },
   { label: 'Consommables', to: '/consumables', icon: Beaker },
   { label: "Demandes d'acces", to: '/access-requests', icon: ClipboardList },
+  { label: 'Mouvements', to: '/movements', icon: ArrowRightLeft },
+  { label: 'Stockage', to: '/storage', icon: Archive, allowedRoles: ['ADMIN', 'ARCHIVIST'] },
   { label: 'RFID', to: '/rfid', icon: Tag, allowedRoles: ['ARCHIVIST', 'ADMIN'] },
   { label: 'Rapports', to: '/reports', icon: BarChart3 },
-  { label: 'Administration', to: '/admin', icon: Settings  },
+  { label: 'Administration', to: '/admin', icon: Settings },
 ];
 
 interface SidebarProps {
