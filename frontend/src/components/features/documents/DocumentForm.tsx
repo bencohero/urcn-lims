@@ -4,6 +4,8 @@ import { z } from 'zod';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
+import { useStudies } from '@/hooks/useStudies';
+import { useSites } from '@/hooks/useSites';
 import type { CreateDocumentRequest } from '@/types';
 
 
@@ -75,6 +77,23 @@ export function DocumentForm({ onSubmit, onCancel, loading, defaultValues }: Doc
     },
   });
 
+  const selectedStudyId = watch('study_id');
+
+  const { data: studiesData } = useStudies({ page_size: 100 });
+  const studyOptions = (studiesData?.items ?? []).map((s) => ({
+    value: s.id,
+    label: `${s.protocol_number} — ${s.title}`,
+  }));
+
+  const { data: sitesData } = useSites({
+    study_id: selectedStudyId || undefined,
+    page_size: 100,
+  });
+  const siteOptions = (sitesData?.items ?? []).map((s) => ({
+    value: s.id,
+    label: `${s.site_number} — ${s.name}`,
+  }));
+
   const handleFormSubmit = (data: DocumentFormValues) => {
     onSubmit(data as CreateDocumentRequest);
   };
@@ -85,19 +104,27 @@ export function DocumentForm({ onSubmit, onCancel, loading, defaultValues }: Doc
       <fieldset>
         <legend className="text-sm font-medium text-gray-900 mb-3">Identification</legend>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Input
-            label="ID Etude"
-            placeholder="UUID de l'etude"
+          <Select
+            label="Etude"
+            options={studyOptions}
+            value={watch('study_id') || ''}
+            onValueChange={(val) => {
+              setValue('study_id', val, { shouldValidate: true });
+              setValue('site_id', '');
+            }}
             error={errors.study_id?.message}
+            placeholder="Sélectionner une étude..."
             required
-            {...register('study_id')}
           />
-          <Input
-            label="ID Site"
-            placeholder="UUID du site"
+          <Select
+            label="Site"
+            options={siteOptions}
+            value={watch('site_id') || ''}
+            onValueChange={(val) => setValue('site_id', val, { shouldValidate: true })}
             error={errors.site_id?.message}
+            placeholder={selectedStudyId ? 'Sélectionner un site...' : "Choisir d'abord une étude"}
+            disabled={!selectedStudyId}
             required
-            {...register('site_id')}
           />
           <Select
             label="Type de document"

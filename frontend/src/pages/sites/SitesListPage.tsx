@@ -15,6 +15,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Badge } from '@/components/ui/Badge';
 import { useToast } from '@/components/ui/Toast';
 import { useSites, useCreateSite } from '@/hooks/useSites';
+import { useStudies } from '@/hooks/useStudies';
 import { formatDate } from '@/lib/utils/utils';
 import type { Site, SiteFilters } from '@/types';
 import type { CreateSiteRequest } from '@/lib/api/sites';
@@ -122,11 +123,19 @@ function CreateSiteForm({
     register,
     handleSubmit,
     control,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<CreateSiteFormValues>({
     resolver: zodResolver(createSiteSchema),
     defaultValues: { has_offline_capability: false },
   });
+
+  const { data: studiesData } = useStudies({ page_size: 100 });
+  const studyOptions = (studiesData?.items ?? []).map((s) => ({
+    value: s.id,
+    label: `${s.protocol_number} — ${s.title}`,
+  }));
 
   const handleFormSubmit = (data: CreateSiteFormValues) => {
     const payload: CreateSiteRequest = {
@@ -155,11 +164,14 @@ function CreateSiteForm({
   return (
     <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Input
-          label="Identifiant etude (UUID)"
-          placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+        <Select
+          label="Etude"
+          options={studyOptions}
+          value={watch('study_id') || ''}
+          onValueChange={(val) => setValue('study_id', val, { shouldValidate: true })}
           error={errors.study_id?.message}
-          {...register('study_id')}
+          placeholder="Sélectionner une étude..."
+          required
         />
         <Input
           label="Numero de site"
