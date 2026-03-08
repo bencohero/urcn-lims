@@ -4,7 +4,7 @@ from datetime import date
 from typing import Any, Dict, Optional
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 
 from .base import BaseSchema, IDTimestampSchema
 from .document import StoredItemBase, StudySummary, SiteSummary, ContainerSummary, LocationSummary, RFIDTagSummary
@@ -56,7 +56,7 @@ class EquipmentUpdate(BaseSchema):
         default=None,
         pattern="^(OPERATIONAL|MAINTENANCE|DEFECTIVE|RETIRED)$"
     )
-    metadata: Optional[Dict[str, Any]] = None
+    equipment_metadata: Optional[Dict[str, Any]] = None
 
 
 class EquipmentResponse(IDTimestampSchema, EquipmentBase):
@@ -74,4 +74,7 @@ class EquipmentResponse(IDTimestampSchema, EquipmentBase):
     container: Optional[ContainerSummary] = None
     location: Optional[LocationSummary] = None
     rfid_tag: Optional[RFIDTagSummary] = None
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: Optional[Dict[str, Any]] = Field(
+        default=None,
+        validation_alias=AliasChoices("equipment_metadata", "metadata"),
+    )

@@ -4,7 +4,7 @@ from datetime import date, datetime
 from typing import Any, Dict, Optional
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 
 from .base import BaseSchema, IDTimestampSchema
 
@@ -107,4 +107,7 @@ class AccessRequestResponse(IDTimestampSchema, AccessRequestBase):
     hours_pending: float = 0.0
     is_overdue: bool = False
     days_overdue: int = 0
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: Optional[Dict[str, Any]] = Field(
+        default=None,
+        validation_alias=AliasChoices("meta_data", "metadata"),
+    )

@@ -4,7 +4,7 @@ from datetime import date
 from typing import Any, Dict, Optional
 from uuid import UUID
 
-from pydantic import EmailStr, Field
+from pydantic import AliasChoices, EmailStr, Field
 
 from .base import BaseSchema, IDTimestampSchema
 
@@ -45,7 +45,7 @@ class SiteUpdate(BaseSchema):
     status: Optional[str] = Field(default=None, pattern="^(ACTIVE|INACTIVE|CLOSED)$")
     closure_date: Optional[date] = None
     has_offline_capability: Optional[bool] = None
-    metadata: Optional[Dict[str, Any]] = None
+    meta_data: Optional[Dict[str, Any]] = None
 
 
 class PrincipalInvestigator(BaseSchema):
@@ -66,4 +66,7 @@ class SiteResponse(IDTimestampSchema, SiteBase):
     principal_investigator: Optional[PrincipalInvestigator] = None
     storage_locations_count: int = 0
     total_items_stored: int = 0
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: Optional[Dict[str, Any]] = Field(
+        default=None,
+        validation_alias=AliasChoices("meta_data", "metadata"),
+    )

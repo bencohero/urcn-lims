@@ -4,7 +4,7 @@ from datetime import date
 from typing import Any, Dict, Optional
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 
 from .base import BaseSchema, IDTimestampSchema
 from .document import StoredItemBase, StudySummary, SiteSummary, ContainerSummary, LocationSummary
@@ -46,7 +46,7 @@ class ConsumableUpdate(BaseSchema):
     expiry_date: Optional[date] = None
     minimum_stock_level: Optional[int] = Field(default=None, ge=0)
     reorder_point: Optional[int] = Field(default=None, ge=0)
-    metadata: Optional[Dict[str, Any]] = None
+    consumable_metadata: Optional[Dict[str, Any]] = None
 
 
 class ConsumableResponse(IDTimestampSchema, ConsumableBase):
@@ -67,4 +67,7 @@ class ConsumableResponse(IDTimestampSchema, ConsumableBase):
     location: Optional[LocationSummary] = None
     is_expired: bool = False
     is_low_stock: bool = False
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: Optional[Dict[str, Any]] = Field(
+        default=None,
+        validation_alias=AliasChoices("consumable_metadata", "metadata"),
+    )

@@ -4,7 +4,7 @@ from datetime import date, datetime
 from typing import Any, Dict, Optional
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 
 from .base import BaseSchema, IDTimestampSchema
 
@@ -69,4 +69,7 @@ class MovementResponse(IDTimestampSchema, MovementBase):
     to_location: Optional[LocationSummary] = None
     related_access_request_id: Optional[UUID] = None
     is_return_overdue: bool = False
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: Optional[Dict[str, Any]] = Field(
+        default=None,
+        validation_alias=AliasChoices("meta_data", "metadata"),
+    )

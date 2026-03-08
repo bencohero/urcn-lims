@@ -4,7 +4,7 @@ from datetime import date
 from typing import Any, Dict, Optional
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 
 from .base import BaseSchema, IDTimestampSchema
 
@@ -62,7 +62,7 @@ class DocumentUpdate(BaseSchema):
     confidentiality_level: Optional[str] = Field(
         default=None, pattern="^(LOW|MEDIUM|HIGH|CRITICAL)$"
     )
-    metadata: Optional[Dict[str, Any]] = None
+    document_metadata: Optional[Dict[str, Any]] = None
 
 
 class StudySummary(BaseSchema):
@@ -114,4 +114,7 @@ class DocumentResponse(IDTimestampSchema, DocumentBase):
     container: Optional[ContainerSummary] = None
     location: Optional[LocationSummary] = None
     rfid_tag: Optional[RFIDTagSummary] = None
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: Optional[Dict[str, Any]] = Field(
+        default=None,
+        validation_alias=AliasChoices("document_metadata", "metadata"),
+    )
