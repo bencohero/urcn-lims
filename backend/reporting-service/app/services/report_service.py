@@ -246,7 +246,7 @@ class ReportService:
     ) -> Dict[str, Any]:
         """Get dashboard statistics."""
         # Calculate period
-        now = datetime.utcnow()
+        now = datetime.now()
         if period == "day":
             start_date = now - timedelta(days=1)
         elif period == "week":

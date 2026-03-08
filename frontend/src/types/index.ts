@@ -65,6 +65,7 @@ export interface User {
   last_name: string;
   phone?: string;
   is_active: boolean;
+  is_superuser: boolean;
   mfa_enabled: boolean;
   roles: Role[];
   sites: UserSite[];

@@ -1,12 +1,16 @@
 """Seed initial data for the Clinical Storage System."""
 
 import asyncio
+import os
 import sys
 from uuid import uuid4
 
-sys.path.insert(0, "/home/skamboule/claude-code/urcn-lims/backend")
 
 from sqlalchemy.ext.asyncio import AsyncSession
+    
+
+backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, backend_dir)
 
 from common.database.session import AsyncSessionLocal
 from common.models import Role, User, SystemSettings

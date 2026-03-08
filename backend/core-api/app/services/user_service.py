@@ -9,8 +9,6 @@ from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-import sys
-sys.path.insert(0, "/home/skamboule/claude-code/urcn-lims/backend")
 
 from common.models import User, SiteUser, Role
 from common.schemas.user import UserCreate, UserUpdate

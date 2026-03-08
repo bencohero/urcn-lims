@@ -4,6 +4,11 @@ Async database session management with SQLAlchemy 2.0.
 
 from collections.abc import AsyncGenerator
 from typing import Optional
+from common.utils.logger import get_logger
+
+
+logger = get_logger(__name__)
+
 
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -25,6 +30,7 @@ engine: AsyncEngine = create_async_engine(
     pool_timeout=settings.DATABASE_POOL_TIMEOUT,
     pool_pre_ping=True,
 )
+
 
 # Session factory
 AsyncSessionLocal = async_sessionmaker(
@@ -82,7 +88,20 @@ class DatabaseManager:
         return self._session
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        if self._owns_session and self._session:
+        if not self._session:
+            return
+        
+        try:
             if exc_type:
+                logger.warning(
+                    f"Rolling back transaction due to {exc_type.__name__}: {exc_val}"
+                )
                 await self._session.rollback()
-            await self._session.close()
+            elif self._auto_commit and self._owns_session:
+                logger.debug("Auto-committing transaction")
+                await self._session.commit()
+            
+        finally:
+            if self._owns_session:
+                await self._session.close()
+                logger.debug("Closed database session")

@@ -9,14 +9,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN python -m venv /app/.venv
 ENV PATH="/app/.venv/bin:$PATH"
 
-# Only what's needed for migrations
-RUN pip install --no-cache-dir \
-    sqlalchemy[asyncio]==2.0.25 \
-    asyncpg==0.29.0 \
-    alembic==1.13.1 \
-    pydantic==2.5.3 \
-    pydantic-settings==2.1.0 \
-    python-dotenv==1.0.0
+COPY requirements.txt .
+
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
 
 FROM python:3.11-slim
@@ -33,7 +29,14 @@ ENV PYTHONPATH="/app"
 
 COPY common/ /app/common/
 COPY database/ /app/database/
+COPY scripts/ /app/scripts/
+
+COPY scripts/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+RUN useradd -m appuser
+USER appuser
 
 WORKDIR /app/database
 
-CMD ["alembic", "upgrade", "head"]
+CMD ["/entrypoint.sh"]

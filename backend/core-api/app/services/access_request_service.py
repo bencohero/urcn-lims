@@ -9,8 +9,6 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-import sys
-sys.path.insert(0, "/home/skamboule/claude-code/urcn-lims/backend")
 
 from common.models import AccessRequest, StoredItem, User
 from common.schemas.access_request import (
@@ -37,7 +35,7 @@ class AccessRequestService:
 
     async def _generate_request_number(self) -> str:
         """Generate next sequential request number: AR-YYYY-NNNN."""
-        year = datetime.utcnow().year
+        year = datetime.now().year
         prefix = f"AR-{year}-"
 
         result = await self.db.execute(

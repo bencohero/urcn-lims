@@ -43,8 +43,15 @@ install:
 	pip install -r requirements.txt
 
 # Development
+# postgres-master redis rabbitmq
 dev:
-	docker compose --env-file .env.dev up -d postgres-master redis rabbitmq
+	docker compose --env-file .env.dev up -d 
+	@echo "Infrastructure services started"
+	@echo "Run services individually with uvicorn"
+
+
+dev-rebuild:
+	docker compose --env-file .env.dev up -d --build 
 	@echo "Infrastructure services started"
 	@echo "Run services individually with uvicorn"
 
@@ -74,7 +81,7 @@ migrate-down:
 	cd database && alembic downgrade -1
 
 seed:
-	python scripts/seed_data.py
+	python -m scripts.seed_data
 
 # Docker
 docker-up:

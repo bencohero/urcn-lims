@@ -9,9 +9,6 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.gzip import GZipMiddleware
 
-import sys
-sys.path.insert(0, "/home/skamboule/claude-code/urcn-lims/backend")
-
 from common.config import get_settings
 from common.database import init_db, close_db
 from common.middleware import setup_cors, setup_error_handlers
