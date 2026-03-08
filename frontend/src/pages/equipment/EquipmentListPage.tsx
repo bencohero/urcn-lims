@@ -6,12 +6,15 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
+import { Modal } from '@/components/ui/Modal';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Badge } from '@/components/ui/Badge';
-import { useEquipment } from '@/hooks/useEquipment';
+import { useToast } from '@/components/ui/Toast';
+import { EquipmentForm } from '@/components/features/equipment/EquipmentForm';
+import { useEquipment, useCreateEquipment } from '@/hooks/useEquipment';
 import { formatDate } from '@/lib/utils/utils';
-import type { Equipment, EquipmentFilters, EquipmentType } from '@/types';
+import type { Equipment, EquipmentFilters, EquipmentType, CreateEquipmentRequest } from '@/types';
 
 const EQUIPMENT_TYPE_OPTIONS = [
   { value: '', label: 'Tous les types' },
@@ -118,12 +121,15 @@ const columns: Column<Equipment>[] = [
 
 export default function EquipmentListPage() {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [filters, setFilters] = useState<EquipmentFilters>({
     page: 1,
     page_size: 25,
   });
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   const { data, isLoading } = useEquipment(filters);
+  const createEquipment = useCreateEquipment();
 
   const handleSort = (key: string) => {
     setFilters((prev) => ({
@@ -133,13 +139,23 @@ export default function EquipmentListPage() {
     }));
   };
 
+  const handleCreate = (payload: CreateEquipmentRequest) => {
+    createEquipment.mutate(payload, {
+      onSuccess: () => {
+        toast({ variant: 'success', title: 'Equipement enregistre' });
+        setShowCreateModal(false);
+      },
+      onError: () => toast({ variant: 'error', title: "Erreur lors de l'enregistrement" }),
+    });
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="Equipements"
         description="Gestion des equipements de laboratoire"
         actions={
-          <Button icon={<Plus className="h-4 w-4" />}>
+          <Button icon={<Plus className="h-4 w-4" />} onClick={() => setShowCreateModal(true)}>
             Nouvel equipement
           </Button>
         }
@@ -205,6 +221,20 @@ export default function EquipmentListPage() {
           emptyDescription="Aucun equipement ne correspond aux filtres"
         />
       </Card>
+
+      {/* Create Modal */}
+      <Modal
+        open={showCreateModal}
+        onOpenChange={setShowCreateModal}
+        title="Enregistrer un equipement"
+        description="Ajoutez un nouvel equipement de laboratoire au systeme"
+      >
+        <EquipmentForm
+          onSubmit={handleCreate}
+          onCancel={() => setShowCreateModal(false)}
+          loading={createEquipment.isPending}
+        />
+      </Modal>
     </div>
   );
 }

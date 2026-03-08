@@ -15,8 +15,12 @@ import { Badge } from '@/components/ui/Badge';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Spinner } from '@/components/ui/Spinner';
 import { Tabs, TabContent } from '@/components/ui/Tabs';
+import { Modal } from '@/components/ui/Modal';
+import { Select } from '@/components/ui/Select';
+import { Input } from '@/components/ui/Input';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { useDocumentById, useDocumentHistory } from '@/hooks/useDocuments';
+import { useToast } from '@/components/ui/Toast';
+import { useDocumentById, useDocumentHistory, useUpdateDocument } from '@/hooks/useDocuments';
 import { formatDate, formatDateTime } from '@/lib/utils/utils';
 import { useState } from 'react';
 import type { AuditEntry } from '@/types';
@@ -35,13 +39,66 @@ const CONDITION_LABELS: Record<string, string> = {
   DAMAGED: 'Endommage',
 };
 
+const PHYSICAL_CONDITIONS = [
+  { value: 'EXCELLENT', label: 'Excellent' },
+  { value: 'GOOD', label: 'Bon' },
+  { value: 'FAIR', label: 'Correct' },
+  { value: 'POOR', label: 'Mauvais' },
+  { value: 'DAMAGED', label: 'Endommage' },
+];
+
+const STATUS_OPTIONS = [
+  { value: 'IN_STORAGE', label: 'En stockage' },
+  { value: 'CHECKED_OUT', label: 'Sorti' },
+  { value: 'IN_TRANSIT', label: 'En transit' },
+  { value: 'ARCHIVED', label: 'Archive' },
+];
+
 export default function DocumentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('info');
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editFields, setEditFields] = useState({
+    container_id: '',
+    physical_condition: '',
+    location_notes: '',
+    status: '',
+  });
 
   const { data: doc, isLoading } = useDocumentById(id!);
   const { data: history, isLoading: historyLoading } = useDocumentHistory(id!);
+  const updateDocument = useUpdateDocument();
+
+  const openEditModal = () => {
+    setEditFields({
+      container_id: '',
+      physical_condition: doc?.physical_condition || '',
+      location_notes: doc?.location_notes || '',
+      status: doc?.status || '',
+    });
+    setShowEditModal(true);
+  };
+
+  const handleEditSubmit = () => {
+    const payload: Record<string, string> = {};
+    if (editFields.container_id) payload.container_id = editFields.container_id;
+    if (editFields.physical_condition) payload.physical_condition = editFields.physical_condition;
+    if (editFields.location_notes !== doc?.location_notes) payload.location_notes = editFields.location_notes;
+    if (editFields.status && editFields.status !== doc?.status) payload.status = editFields.status;
+
+    updateDocument.mutate(
+      { id: id!, payload },
+      {
+        onSuccess: () => {
+          toast({ variant: 'success', title: 'Document mis a jour' });
+          setShowEditModal(false);
+        },
+        onError: () => toast({ variant: 'error', title: 'Erreur lors de la mise a jour' }),
+      },
+    );
+  };
 
   if (isLoading) {
     return (
@@ -86,7 +143,11 @@ export default function DocumentDetailPage() {
         actions={
           <div className="flex items-center gap-2">
             <StatusBadge status={doc.status} />
-            <Button variant="outline" icon={<Edit2 className="h-4 w-4" />}>
+            <Button
+              variant="outline"
+              icon={<Edit2 className="h-4 w-4" />}
+              onClick={openEditModal}
+            >
               Modifier
             </Button>
           </div>
@@ -241,6 +302,50 @@ export default function DocumentDetailPage() {
           </Card>
         </TabContent>
       </Tabs>
+
+      {/* Edit Modal */}
+      <Modal
+        open={showEditModal}
+        onOpenChange={setShowEditModal}
+        title="Modifier le document"
+        description="Modifiez les informations de stockage et l'etat du document"
+      >
+        <div className="space-y-4">
+          <Input
+            label="ID Conteneur (si deplacement)"
+            placeholder="UUID du nouveau conteneur"
+            value={editFields.container_id}
+            onChange={(e) => setEditFields((prev) => ({ ...prev, container_id: e.target.value }))}
+          />
+          <Select
+            label="Etat physique"
+            options={PHYSICAL_CONDITIONS}
+            value={editFields.physical_condition}
+            onValueChange={(val) => setEditFields((prev) => ({ ...prev, physical_condition: val }))}
+            placeholder="Selectionner..."
+          />
+          <Select
+            label="Statut"
+            options={STATUS_OPTIONS}
+            value={editFields.status}
+            onValueChange={(val) => setEditFields((prev) => ({ ...prev, status: val }))}
+          />
+          <Input
+            label="Notes d'emplacement"
+            placeholder="Ex: Etagere 3, boite rouge"
+            value={editFields.location_notes}
+            onChange={(e) => setEditFields((prev) => ({ ...prev, location_notes: e.target.value }))}
+          />
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="outline" onClick={() => setShowEditModal(false)}>
+              Annuler
+            </Button>
+            <Button onClick={handleEditSubmit} loading={updateDocument.isPending}>
+              Enregistrer
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

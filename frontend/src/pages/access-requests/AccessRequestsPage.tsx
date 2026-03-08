@@ -5,11 +5,14 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { Modal } from '@/components/ui/Modal';
 import { Tabs, TabContent } from '@/components/ui/Tabs';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Badge } from '@/components/ui/Badge';
-import { useAccessRequests } from '@/hooks/useAccessRequests';
+import { useToast } from '@/components/ui/Toast';
+import { AccessRequestForm } from '@/components/features/access-requests/AccessRequestForm';
+import { useAccessRequests, useCreateAccessRequest } from '@/hooks/useAccessRequests';
 import { formatDate, formatRelative } from '@/lib/utils/utils';
 import type { AccessRequest, AccessRequestFilters, AccessRequestStatus, Urgency } from '@/types';
 
@@ -113,11 +116,13 @@ const STATUS_TABS: { value: string; label: string; status?: AccessRequestStatus 
 
 export default function AccessRequestsPage() {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('all');
   const [filters, setFilters] = useState<AccessRequestFilters>({
     page: 1,
     page_size: 25,
   });
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   const currentFilters: AccessRequestFilters = {
     ...filters,
@@ -125,6 +130,7 @@ export default function AccessRequestsPage() {
   };
 
   const { data, isLoading } = useAccessRequests(currentFilters);
+  const createRequest = useCreateAccessRequest();
 
   const handleSort = (key: string) => {
     setFilters((prev) => ({
@@ -132,6 +138,33 @@ export default function AccessRequestsPage() {
       sort_by: key,
       sort_order: prev.sort_by === key && prev.sort_order === 'asc' ? 'desc' : 'asc',
     }));
+  };
+
+  const handleCreate = (formData: {
+    item_id: string;
+    item_type: string;
+    urgency: string;
+    reason: string;
+    needed_by: string;
+    loan_duration_days: number;
+  }) => {
+    createRequest.mutate(
+      {
+        stored_item_id: formData.item_id,
+        requester_site_id: '',
+        request_type: 'LOAN',
+        purpose: formData.reason,
+        urgency: formData.urgency as Urgency,
+        required_by_date: formData.needed_by,
+      },
+      {
+        onSuccess: () => {
+          toast({ variant: 'success', title: 'Demande soumise' });
+          setShowCreateModal(false);
+        },
+        onError: () => toast({ variant: 'error', title: 'Erreur lors de la soumission' }),
+      },
+    );
   };
 
   const tabs = STATUS_TABS.map((tab) => ({
@@ -145,7 +178,7 @@ export default function AccessRequestsPage() {
         title="Demandes d'acces"
         description="Gestion des demandes d'acces aux articles stockes"
         actions={
-          <Button icon={<Plus className="h-4 w-4" />}>
+          <Button icon={<Plus className="h-4 w-4" />} onClick={() => setShowCreateModal(true)}>
             Nouvelle demande
           </Button>
         }
@@ -181,7 +214,7 @@ export default function AccessRequestsPage() {
               emptyTitle="Aucune demande"
               emptyDescription="Aucune demande d'acces ne correspond aux criteres"
               emptyAction={
-                <Button icon={<Plus className="h-4 w-4" />}>
+                <Button icon={<Plus className="h-4 w-4" />} onClick={() => setShowCreateModal(true)}>
                   Creer une demande
                 </Button>
               }
@@ -189,6 +222,20 @@ export default function AccessRequestsPage() {
           </TabContent>
         </Tabs>
       </Card>
+
+      {/* Create Modal */}
+      <Modal
+        open={showCreateModal}
+        onOpenChange={setShowCreateModal}
+        title="Nouvelle demande d'acces"
+        description="Soumettez une demande d'acces a un article stocke"
+      >
+        <AccessRequestForm
+          onSubmit={handleCreate}
+          onCancel={() => setShowCreateModal(false)}
+          loading={createRequest.isPending}
+        />
+      </Modal>
     </div>
   );
 }

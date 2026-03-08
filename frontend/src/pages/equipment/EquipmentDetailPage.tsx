@@ -4,9 +4,14 @@ import { Card, CardContent, CardHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Spinner } from '@/components/ui/Spinner';
+import { Modal } from '@/components/ui/Modal';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { useEquipmentById } from '@/hooks/useEquipment';
+import { useToast } from '@/components/ui/Toast';
+import { EquipmentForm } from '@/components/features/equipment/EquipmentForm';
+import { useEquipmentById, useUpdateEquipment } from '@/hooks/useEquipment';
 import { formatDate } from '@/lib/utils/utils';
+import { useState } from 'react';
+import type { CreateEquipmentRequest } from '@/types';
 
 const TYPE_LABELS: Record<string, string> = {
   CENTRIFUGE: 'Centrifugeuse',
@@ -21,7 +26,24 @@ const TYPE_LABELS: Record<string, string> = {
 export default function EquipmentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const [showEditModal, setShowEditModal] = useState(false);
+
   const { data: eq, isLoading } = useEquipmentById(id!);
+  const updateEquipment = useUpdateEquipment();
+
+  const handleUpdate = (payload: CreateEquipmentRequest) => {
+    updateEquipment.mutate(
+      { id: id!, payload },
+      {
+        onSuccess: () => {
+          toast({ variant: 'success', title: 'Equipement mis a jour' });
+          setShowEditModal(false);
+        },
+        onError: () => toast({ variant: 'error', title: 'Erreur lors de la mise a jour' }),
+      },
+    );
+  };
 
   if (isLoading) {
     return (
@@ -62,7 +84,11 @@ export default function EquipmentDetailPage() {
           <div className="flex items-center gap-2">
             <StatusBadge status={eq.operational_status} />
             <StatusBadge status={eq.status} />
-            <Button variant="outline" icon={<Edit2 className="h-4 w-4" />}>
+            <Button
+              variant="outline"
+              icon={<Edit2 className="h-4 w-4" />}
+              onClick={() => setShowEditModal(true)}
+            >
               Modifier
             </Button>
           </div>
@@ -163,6 +189,35 @@ export default function EquipmentDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Edit Modal */}
+      <Modal
+        open={showEditModal}
+        onOpenChange={setShowEditModal}
+        title="Modifier l'equipement"
+        description="Mettez a jour les informations de l'equipement"
+      >
+        <EquipmentForm
+          onSubmit={handleUpdate}
+          onCancel={() => setShowEditModal(false)}
+          loading={updateEquipment.isPending}
+          defaultValues={{
+            equipment_type: eq.equipment_type,
+            manufacturer: eq.manufacturer,
+            model: eq.model,
+            serial_number: eq.serial_number,
+            operational_status: eq.operational_status,
+            calibration_required: eq.calibration_required,
+            next_calibration_date: eq.next_calibration_date,
+            internal_code: eq.internal_code,
+            description: eq.description,
+            storage_date: eq.storage_date,
+            purchase_date: eq.purchase_date,
+            purchase_cost: eq.purchase_cost,
+            currency: eq.currency,
+          }}
+        />
+      </Modal>
     </div>
   );
 }
