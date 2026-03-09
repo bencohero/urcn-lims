@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 
-from common.models import Document, StoredItem, User
+from common.models import Document, StoredItem, User  # StoredItem used in query filters
 from common.schemas.document import DocumentCreate, DocumentUpdate
 from common.auth.permissions import PermissionChecker
 
@@ -125,12 +125,10 @@ class DocumentService:
         self, document_data: DocumentCreate, user: User
     ) -> Document:
         """Create a new document."""
-        # Create base stored item
-        stored_item = StoredItem(
+        document = Document(
             study_id=document_data.study_id,
             site_id=document_data.site_id,
             container_id=document_data.container_id,
-            item_type="DOCUMENT",
             internal_code=document_data.internal_code,
             description=document_data.description,
             quantity=document_data.quantity,
@@ -141,13 +139,6 @@ class DocumentService:
             location_notes=document_data.location_notes,
             status="IN_STORAGE",
             created_by=user.id,
-        )
-        self.db.add(stored_item)
-        await self.db.flush()
-
-        # Create document
-        document = Document(
-            id=stored_item.id,
             document_type=document_data.document_type,
             subject_id=document_data.subject_id,
             visit_number=document_data.visit_number,
@@ -172,8 +163,18 @@ class DocumentService:
         )
 
         await self.db.commit()
-        await self.db.refresh(document)
-        return document
+
+        # Reload with relationships to avoid lazy-load issues
+        result = await self.db.execute(
+            select(Document)
+            .where(Document.id == document.id)
+            .options(
+                selectinload(Document.study),
+                selectinload(Document.site),
+                selectinload(Document.container),
+            )
+        )
+        return result.scalar_one()
 
     async def update_document(
         self, document_id: UUID, document_data: DocumentUpdate, user: User

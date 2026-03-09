@@ -62,7 +62,7 @@ class EquipmentUpdate(BaseSchema):
 class EquipmentResponse(IDTimestampSchema, EquipmentBase):
     """Equipment response schema."""
 
-    stored_item_id: UUID
+    stored_item_id: UUID = Field(validation_alias=AliasChoices("id", "stored_item_id"))
     status: str
     storage_date: date
     expected_retention_until: Optional[date] = None

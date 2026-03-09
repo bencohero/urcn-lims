@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -5,6 +6,9 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Checkbox } from '@/components/ui/Checkbox';
 import { Button } from '@/components/ui/Button';
+import { useStudies } from '@/hooks/useStudies';
+import { useSites } from '@/hooks/useSites';
+import { useStorageLocations, useContainersByLocation } from '@/hooks/useStorage';
 import type { CreateConsumableRequest } from '@/types';
 
 const schema = z.object({
@@ -50,18 +54,11 @@ interface ConsumableFormProps {
   onCancel: () => void;
   loading?: boolean;
   defaultValues?: Partial<FormValues>;
-  studies?: Array<{ value: string; label: string }>;
-  sites?: Array<{ value: string; label: string }>;
 }
 
-export function ConsumableForm({
-  onSubmit,
-  onCancel,
-  loading,
-  defaultValues,
-  studies = [],
-  sites = [],
-}: ConsumableFormProps) {
+export function ConsumableForm({ onSubmit, onCancel, loading, defaultValues }: ConsumableFormProps) {
+  const [selectedLocationId, setSelectedLocationId] = useState('');
+
   const {
     register,
     handleSubmit,
@@ -77,7 +74,39 @@ export function ConsumableForm({
     },
   });
 
+  const selectedStudyId = watch('study_id');
+  const selectedSiteId = watch('site_id');
   const isHazardous = watch('hazardous');
+
+  const { data: studiesData } = useStudies({ page_size: 100 });
+  const studyOptions = (studiesData?.items ?? []).map((s) => ({
+    value: s.id,
+    label: `${s.protocol_number} — ${s.title}`,
+  }));
+
+  const { data: sitesData } = useSites({
+    study_id: selectedStudyId || undefined,
+    page_size: 100,
+  });
+  const siteOptions = (sitesData?.items ?? []).map((s) => ({
+    value: s.id,
+    label: `${s.site_number} — ${s.name}`,
+  }));
+
+  const { data: locationsData } = useStorageLocations({
+    site_id: selectedSiteId || undefined,
+    page_size: 100,
+  });
+  const locationOptions = (locationsData?.items ?? []).map((l) => ({
+    value: l.id,
+    label: l.code ? `${l.code} – ${l.name}` : l.name,
+  }));
+
+  const { data: containersData } = useContainersByLocation(selectedLocationId || undefined);
+  const containerOptions = (containersData?.items ?? []).map((c) => ({
+    value: c.id,
+    label: c.code ? `${c.code} – ${c.name}` : c.name,
+  }));
 
   return (
     <form
@@ -144,48 +173,54 @@ export function ConsumableForm({
       <fieldset>
         <legend className="text-sm font-medium text-gray-900 mb-3">Affectation</legend>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {studies.length > 0 ? (
-            <Select
-              label="Etude"
-              options={studies}
-              value={watch('study_id') || ''}
-              onValueChange={(val) => setValue('study_id', val)}
-              error={errors.study_id?.message}
-              required
-            />
-          ) : (
-            <Input
-              label="ID Etude"
-              placeholder="UUID de l'etude"
-              error={errors.study_id?.message}
-              required
-              {...register('study_id')}
-            />
-          )}
-          {sites.length > 0 ? (
-            <Select
-              label="Site"
-              options={sites}
-              value={watch('site_id') || ''}
-              onValueChange={(val) => setValue('site_id', val)}
-              error={errors.site_id?.message}
-              required
-            />
-          ) : (
-            <Input
-              label="ID Site"
-              placeholder="UUID du site"
-              error={errors.site_id?.message}
-              required
-              {...register('site_id')}
-            />
-          )}
-          <Input
-            label="ID Conteneur"
-            placeholder="UUID du conteneur"
-            error={errors.container_id?.message}
+          <Select
+            label="Etude"
+            options={studyOptions}
+            value={watch('study_id') || ''}
+            onValueChange={(val) => {
+              setValue('study_id', val, { shouldValidate: true });
+              setValue('site_id', '');
+              setSelectedLocationId('');
+              setValue('container_id', '');
+            }}
+            error={errors.study_id?.message}
+            placeholder="Selectionner une etude..."
             required
-            {...register('container_id')}
+          />
+          <Select
+            label="Site"
+            options={siteOptions}
+            value={watch('site_id') || ''}
+            onValueChange={(val) => {
+              setValue('site_id', val, { shouldValidate: true });
+              setSelectedLocationId('');
+              setValue('container_id', '');
+            }}
+            error={errors.site_id?.message}
+            placeholder={selectedStudyId ? 'Selectionner un site...' : "Choisir d'abord une etude"}
+            disabled={!selectedStudyId}
+            required
+          />
+          <Select
+            label="Emplacement"
+            options={locationOptions}
+            value={selectedLocationId}
+            onValueChange={(val) => {
+              setSelectedLocationId(val);
+              setValue('container_id', '');
+            }}
+            placeholder={selectedSiteId ? 'Selectionner un emplacement...' : "Choisir d'abord un site"}
+            disabled={!selectedSiteId}
+          />
+          <Select
+            label="Conteneur"
+            options={containerOptions}
+            value={watch('container_id') || ''}
+            onValueChange={(val) => setValue('container_id', val, { shouldValidate: true })}
+            error={errors.container_id?.message}
+            placeholder={selectedLocationId ? 'Selectionner un conteneur...' : "Choisir d'abord un emplacement"}
+            disabled={!selectedLocationId}
+            required
           />
           <Input
             label="Date de stockage"

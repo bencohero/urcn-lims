@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -6,6 +7,7 @@ import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { useStudies } from '@/hooks/useStudies';
 import { useSites } from '@/hooks/useSites';
+import { useStorageLocations, useContainersByLocation } from '@/hooks/useStorage';
 import type { CreateDocumentRequest } from '@/types';
 
 
@@ -61,6 +63,8 @@ const PHYSICAL_CONDITIONS = [
 ];
 
 export function DocumentForm({ onSubmit, onCancel, loading, defaultValues }: DocumentFormProps) {
+  const [selectedLocationId, setSelectedLocationId] = useState('');
+
   const {
     register,
     handleSubmit,
@@ -78,6 +82,7 @@ export function DocumentForm({ onSubmit, onCancel, loading, defaultValues }: Doc
   });
 
   const selectedStudyId = watch('study_id');
+  const selectedSiteId = watch('site_id');
 
   const { data: studiesData } = useStudies({ page_size: 100 });
   const studyOptions = (studiesData?.items ?? []).map((s) => ({
@@ -92,6 +97,21 @@ export function DocumentForm({ onSubmit, onCancel, loading, defaultValues }: Doc
   const siteOptions = (sitesData?.items ?? []).map((s) => ({
     value: s.id,
     label: `${s.site_number} — ${s.name}`,
+  }));
+
+  const { data: locationsData } = useStorageLocations({
+    site_id: selectedSiteId || undefined,
+    page_size: 100,
+  });
+  const locationOptions = (locationsData?.items ?? []).map((l) => ({
+    value: l.id,
+    label: l.code ? `${l.code} – ${l.name}` : l.name,
+  }));
+
+  const { data: containersData } = useContainersByLocation(selectedLocationId || undefined);
+  const containerOptions = (containersData?.items ?? []).map((c) => ({
+    value: c.id,
+    label: c.code ? `${c.code} – ${c.name}` : c.name,
   }));
 
   const handleFormSubmit = (data: DocumentFormValues) => {
@@ -111,6 +131,8 @@ export function DocumentForm({ onSubmit, onCancel, loading, defaultValues }: Doc
             onValueChange={(val) => {
               setValue('study_id', val, { shouldValidate: true });
               setValue('site_id', '');
+              setSelectedLocationId('');
+              setValue('container_id', '');
             }}
             error={errors.study_id?.message}
             placeholder="Sélectionner une étude..."
@@ -120,7 +142,11 @@ export function DocumentForm({ onSubmit, onCancel, loading, defaultValues }: Doc
             label="Site"
             options={siteOptions}
             value={watch('site_id') || ''}
-            onValueChange={(val) => setValue('site_id', val, { shouldValidate: true })}
+            onValueChange={(val) => {
+              setValue('site_id', val, { shouldValidate: true });
+              setSelectedLocationId('');
+              setValue('container_id', '');
+            }}
             error={errors.site_id?.message}
             placeholder={selectedStudyId ? 'Sélectionner un site...' : "Choisir d'abord une étude"}
             disabled={!selectedStudyId}
@@ -199,12 +225,26 @@ export function DocumentForm({ onSubmit, onCancel, loading, defaultValues }: Doc
       <fieldset>
         <legend className="text-sm font-medium text-gray-900 mb-3">Stockage</legend>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Input
-            label="ID Conteneur"
-            placeholder="UUID du conteneur"
+          <Select
+            label="Emplacement"
+            options={locationOptions}
+            value={selectedLocationId}
+            onValueChange={(val) => {
+              setSelectedLocationId(val);
+              setValue('container_id', '');
+            }}
+            placeholder={selectedSiteId ? 'Selectionner un emplacement...' : "Choisir d'abord un site"}
+            disabled={!selectedSiteId}
+          />
+          <Select
+            label="Conteneur"
+            options={containerOptions}
+            value={watch('container_id') || ''}
+            onValueChange={(val) => setValue('container_id', val, { shouldValidate: true })}
             error={errors.container_id?.message}
+            placeholder={selectedLocationId ? 'Selectionner un conteneur...' : "Choisir d'abord un emplacement"}
+            disabled={!selectedLocationId}
             required
-            {...register('container_id')}
           />
           <Input
             label="Code interne"

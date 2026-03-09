@@ -59,6 +59,15 @@ export function useContainers(filters?: ContainerFilters) {
   });
 }
 
+export function useContainersByLocation(locationId: string | undefined) {
+  return useQuery({
+    queryKey: ['containers', { location_id: locationId }],
+    queryFn: () => storageApi.getContainers({ location_id: locationId!, page_size: 100 }),
+    placeholderData: (prev) => prev,
+    enabled: !!locationId,
+  });
+}
+
 export function useCreateContainer() {
   const queryClient = useQueryClient();
   return useMutation({
