@@ -18,6 +18,8 @@ import {
   useCreateMovement,
   useRecordReturn,
 } from '@/hooks/useMovements';
+import { useUsers } from '@/hooks/useUsers';
+import { useContainers, useStorageLocations } from '@/hooks/useStorage';
 import { formatDate, formatDateTime } from '@/lib/utils/utils';
 import type {
   BackendMovementType,
@@ -106,6 +108,28 @@ function CreateMovementModal({
 }) {
   const { toast } = useToast();
   const createMovement = useCreateMovement();
+  const { data: usersData } = useUsers({ page_size: 100 });
+  const { data: containersData } = useContainers({ page_size: 100 });
+  const { data: locationsData } = useStorageLocations({ page_size: 100 });
+
+  const userOptions = (usersData?.items ?? []).map((u) => ({
+    value: u.id,
+    label: `${u.first_name} ${u.last_name} (${u.username})`,
+  }));
+  const containerOptions = [
+    { value: '', label: '— Aucun —' },
+    ...(containersData?.items ?? []).map((c) => ({
+      value: c.id,
+      label: c.code ? `${c.code} – ${c.name}` : c.name,
+    })),
+  ];
+  const locationOptions = [
+    { value: '', label: '— Aucun —' },
+    ...(locationsData?.items ?? []).map((l) => ({
+      value: l.id,
+      label: l.code ? `${l.code} – ${l.name}` : l.name,
+    })),
+  ];
 
   const {
     register,
@@ -180,32 +204,64 @@ function CreateMovementModal({
             />
           )}
         />
-        <Input
-          label="Effectue par (UUID utilisateur)"
-          required
-          placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-          error={errors.performed_by?.message}
-          {...register('performed_by')}
+        <Controller
+          control={control}
+          name="performed_by"
+          render={({ field }) => (
+            <Select
+              label="Effectue par"
+              required
+              options={userOptions}
+              value={field.value ?? ''}
+              onValueChange={field.onChange}
+              error={errors.performed_by?.message}
+              placeholder="Selectionner un utilisateur"
+            />
+          )}
         />
         <div className="grid grid-cols-2 gap-4">
-          <Input
-            label="Conteneur source (UUID, optionnel)"
-            placeholder="UUID conteneur"
-            error={errors.from_container_id?.message}
-            {...register('from_container_id')}
+          <Controller
+            control={control}
+            name="from_container_id"
+            render={({ field }) => (
+              <Select
+                label="Conteneur source (optionnel)"
+                options={containerOptions}
+                value={field.value ?? ''}
+                onValueChange={field.onChange}
+                error={errors.from_container_id?.message}
+                placeholder="— Aucun —"
+              />
+            )}
           />
-          <Input
-            label="Conteneur destination (UUID, optionnel)"
-            placeholder="UUID conteneur"
-            error={errors.to_container_id?.message}
-            {...register('to_container_id')}
+          <Controller
+            control={control}
+            name="to_container_id"
+            render={({ field }) => (
+              <Select
+                label="Conteneur destination (optionnel)"
+                options={containerOptions}
+                value={field.value ?? ''}
+                onValueChange={field.onChange}
+                error={errors.to_container_id?.message}
+                placeholder="— Aucun —"
+              />
+            )}
           />
         </div>
-        <Input
-          label="Emplacement destination (UUID, optionnel)"
-          placeholder="UUID emplacement"
-          error={errors.to_location_id?.message}
-          {...register('to_location_id')}
+        <Controller
+          control={control}
+          name="to_location_id"
+          render={({ field }) => (
+            <Select
+              label="Emplacement destination (optionnel)"
+              options={locationOptions}
+              value={field.value ?? ''}
+              onValueChange={field.onChange}
+              error={errors.to_location_id?.message}
+              placeholder="— Aucun —"
+            />
+          )}
         />
         {movementType === 'OUTGOING' && (
           <Input

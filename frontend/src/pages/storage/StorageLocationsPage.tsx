@@ -19,6 +19,7 @@ import {
   useContainers,
   useCreateContainer,
 } from '@/hooks/useStorage';
+import { useSites } from '@/hooks/useSites';
 import type { StorageLocation, Container, ContainerType, LocationType } from '@/types';
 import type { CreateStorageLocationRequest, CreateContainerRequest } from '@/lib/api/storage';
 
@@ -114,6 +115,12 @@ function CreateLocationModal({
 }) {
   const { toast } = useToast();
   const createLocation = useCreateStorageLocation();
+  const { data: sitesData } = useSites({ page_size: 100 });
+
+  const siteOptions = (sitesData?.items ?? []).map((s) => ({
+    value: s.id,
+    label: `${s.site_number} – ${s.name}`,
+  }));
 
   const {
     register,
@@ -169,12 +176,20 @@ function CreateLocationModal({
       size="lg"
     >
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <Input
-          label="ID du site (UUID)"
-          required
-          placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-          error={errors.site_id?.message}
-          {...register('site_id')}
+        <Controller
+          control={control}
+          name="site_id"
+          render={({ field }) => (
+            <Select
+              label="Site"
+              required
+              options={siteOptions}
+              value={field.value ?? ''}
+              onValueChange={field.onChange}
+              error={errors.site_id?.message}
+              placeholder="Selectionner un site"
+            />
+          )}
         />
         <div className="grid grid-cols-2 gap-4">
           <Input
@@ -508,6 +523,11 @@ export default function StorageLocationsPage() {
   const [siteIdInput, setSiteIdInput] = useState('');
   const [appliedSiteId, setAppliedSiteId] = useState<string | undefined>(undefined);
   const [statusFilter, setStatusFilter] = useState<'ACTIVE' | 'INACTIVE' | ''>('');
+  const { data: sitesData } = useSites({ page_size: 100 });
+  const siteFilterOptions = [
+    { value: '', label: 'Tous les sites' },
+    ...(sitesData?.items ?? []).map((s) => ({ value: s.id, label: `${s.site_number} – ${s.name}` })),
+  ];
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
   const [showCreateLocationModal, setShowCreateLocationModal] = useState(false);
   const [showCreateContainerModal, setShowCreateContainerModal] = useState(false);
@@ -536,11 +556,12 @@ export default function StorageLocationsPage() {
         <CardContent>
           <div className="flex flex-wrap items-end gap-3">
             <div className="flex-1 min-w-48">
-              <Input
-                label="ID du site"
-                placeholder="UUID du site..."
+              <Select
+                label="Site"
+                options={siteFilterOptions}
                 value={siteIdInput}
-                onChange={(e) => setSiteIdInput(e.target.value)}
+                onValueChange={(v) => setSiteIdInput(v)}
+                placeholder="Tous les sites"
               />
             </div>
             <div className="w-48">
@@ -554,7 +575,7 @@ export default function StorageLocationsPage() {
             </div>
             <Button
               icon={<Filter className="h-4 w-4" />}
-              onClick={() => setAppliedSiteId(siteIdInput.trim() || undefined)}
+              onClick={() => setAppliedSiteId(siteIdInput || undefined)}
             >
               Filtrer
             </Button>
