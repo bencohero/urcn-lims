@@ -54,8 +54,8 @@ export function Sidebar({ className }: SidebarProps) {
 
   const filteredItems = NAVIGATION_ITEMS.filter((item) => {
     if (!item.allowedRoles) return true;
-    if (isSuperUser()) return true;
-    return item.allowedRoles.some((role) => userRoles.includes(role));
+    const hasAccess = item.allowedRoles.some((role) => userRoles.includes(role));
+    return hasAccess || isSuperUser();
   });
 
   const sidebarContent = (
