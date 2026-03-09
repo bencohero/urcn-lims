@@ -8,6 +8,7 @@ import {
   KeyRound,
   Pencil,
   Unlock,
+  Network,
 } from 'lucide-react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -30,6 +31,7 @@ import {
 } from '@/hooks/useUsers';
 import { UserForm } from '@/components/features/admin/UserForm';
 import { AdminSubNav } from '@/components/features/admin/AdminSubNav';
+import { SiteRoleAssignmentModal } from '@/components/features/admin/SiteRoleAssignmentModal';
 import { formatDate } from '@/lib/utils/utils';
 import type { User, RoleCode } from '@/types';
 import type { UserFilters, CreateUserRequest } from '@/lib/api/users';
@@ -172,6 +174,7 @@ export default function AdminUsersPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [userToEdit, setUserToEdit] = useState<User | null>(null);
   const [userToReset, setUserToReset] = useState<User | null>(null);
+  const [userToAssign, setUserToAssign] = useState<User | null>(null);
   const [selectedRole, setSelectedRole] = useState<RoleCode>('DATA_CLERK');
   const [filters, setFilters] = useState<UserFilters>({
     page: 1,
@@ -287,6 +290,13 @@ export default function AdminUsersPage() {
               >
                 <Pencil className="h-4 w-4 text-gray-500" />
                 Modifier
+              </DropdownMenu.Item>
+              <DropdownMenu.Item
+                className="flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm outline-none hover:bg-gray-100"
+                onSelect={(e) => { e.preventDefault(); setUserToAssign(user); }}
+              >
+                <Network className="h-4 w-4 text-gray-500" />
+                Affectations
               </DropdownMenu.Item>
               {user.is_active ? (
                 <DropdownMenu.Item
@@ -562,6 +572,14 @@ export default function AdminUsersPage() {
         <ResetPasswordModal
           user={userToReset}
           onClose={() => setUserToReset(null)}
+        />
+      )}
+
+      {/* Site Role Assignment Modal */}
+      {userToAssign && (
+        <SiteRoleAssignmentModal
+          user={userToAssign}
+          onClose={() => setUserToAssign(null)}
         />
       )}
     </div>

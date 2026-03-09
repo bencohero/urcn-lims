@@ -1,8 +1,9 @@
 import { NavLink } from 'react-router-dom';
-import { Users, ScrollText, Settings } from 'lucide-react';
+import { Users, ScrollText, Settings, ShieldCheck } from 'lucide-react';
 
 const ADMIN_LINKS = [
   { to: '/admin/users', label: 'Utilisateurs', icon: Users },
+  { to: '/admin/roles', label: 'Roles & Permissions', icon: ShieldCheck },
   { to: '/admin/audit-trail', label: "Piste d'audit", icon: ScrollText },
   { to: '/admin/settings', label: 'Parametres', icon: Settings },
 ];

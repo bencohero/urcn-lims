@@ -10,6 +10,12 @@ export interface RoleDetail {
   is_system_role: boolean;
 }
 
+export interface RoleUpdateRequest {
+  name?: string;
+  description?: string;
+  permissions?: Record<string, Record<string, boolean>>;
+}
+
 export const rolesApi = {
   getAll: async () => {
     const { data } = await apiClient.get<ApiResponse<PaginatedResponse<RoleDetail>>>('/roles');
@@ -18,6 +24,11 @@ export const rolesApi = {
 
   getById: async (id: string) => {
     const { data } = await apiClient.get<ApiResponse<RoleDetail>>(`/roles/${id}`);
+    return data.data;
+  },
+
+  update: async (id: string, payload: RoleUpdateRequest) => {
+    const { data } = await apiClient.put<ApiResponse<RoleDetail>>(`/roles/${id}`, payload);
     return data.data;
   },
 };
