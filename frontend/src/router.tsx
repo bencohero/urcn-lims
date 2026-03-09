@@ -39,6 +39,7 @@ const RFIDPage = lazyPage(() => import('@/pages/rfid/RFIDPage'));
 const ReportsPage = lazyPage(() => import('@/pages/reports/ReportsPage'));
 const AdminUsersPage = lazyPage(() => import('@/pages/admin/AdminUsersPage'));
 const AuditTrailPage = lazyPage(() => import('@/pages/admin/AuditTrailPage'));
+const AdminSettingsPage = lazyPage(() => import('@/pages/admin/AdminSettingsPage'));
 const NotFoundPage = lazyPage(() => import('@/pages/NotFoundPage'));
 
 // Priority 2 pages
@@ -126,6 +127,7 @@ export const router = createBrowserRouter([
               { path: 'admin', element: <Navigate to="/admin/users" replace /> },
               { path: 'admin/users', element: AdminUsersPage },
               { path: 'admin/audit-trail', element: AuditTrailPage },
+              { path: 'admin/settings', element: AdminSettingsPage },
             ],
           },
         ],

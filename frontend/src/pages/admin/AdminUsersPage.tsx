@@ -6,6 +6,8 @@ import {
   UserCheck,
   UserX,
   KeyRound,
+  Pencil,
+  Unlock,
 } from 'lucide-react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -17,13 +19,25 @@ import { Badge } from '@/components/ui/Badge';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { Modal } from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/Toast';
-import { useUsers, useCreateUser, useToggleUserActive } from '@/hooks/useUsers';
+import {
+  useUsers,
+  useCreateUser,
+  useUpdateUser,
+  useActivateUser,
+  useDeactivateUser,
+  useUnlockUser,
+  useAdminResetPassword,
+} from '@/hooks/useUsers';
+import { UserForm } from '@/components/features/admin/UserForm';
+import { AdminSubNav } from '@/components/features/admin/AdminSubNav';
 import { formatDate } from '@/lib/utils/utils';
 import type { User, RoleCode } from '@/types';
 import type { UserFilters, CreateUserRequest } from '@/lib/api/users';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const ROLE_OPTIONS = [
   { value: '', label: 'Tous les roles' },
@@ -56,6 +70,8 @@ const ROLE_COLORS: Record<RoleCode, 'danger' | 'primary' | 'info' | 'warning' | 
   DATA_CLERK: 'default',
 };
 
+// ─── Schemas ──────────────────────────────────────────────────────────────────
+
 const createUserSchema = z.object({
   username: z.string().min(3, 'Minimum 3 caracteres'),
   email: z.string().email('Email invalide'),
@@ -65,11 +81,97 @@ const createUserSchema = z.object({
   password: z.string().min(8, 'Minimum 8 caracteres'),
 });
 
+const resetPasswordSchema = z
+  .object({
+    new_password: z.string().min(8, 'Minimum 8 caracteres'),
+    confirm_password: z.string().min(8, 'Minimum 8 caracteres'),
+  })
+  .refine((d) => d.new_password === d.confirm_password, {
+    message: 'Les mots de passe ne correspondent pas',
+    path: ['confirm_password'],
+  });
+
 type CreateUserFormValues = z.infer<typeof createUserSchema>;
+type ResetPasswordFormValues = z.infer<typeof resetPasswordSchema>;
+
+// ─── Reset Password Modal ─────────────────────────────────────────────────────
+
+function ResetPasswordModal({
+  user,
+  onClose,
+}: {
+  user: User;
+  onClose: () => void;
+}) {
+  const { toast } = useToast();
+  const resetPassword = useAdminResetPassword();
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<ResetPasswordFormValues>({
+    resolver: zodResolver(resetPasswordSchema),
+  });
+
+  const onSubmit = (values: ResetPasswordFormValues) => {
+    resetPassword.mutate(
+      { id: user.id, payload: { new_password: values.new_password } },
+      {
+        onSuccess: () => {
+          toast({ variant: 'success', title: 'Mot de passe reinitialise' });
+          reset();
+          onClose();
+        },
+        onError: () => toast({ variant: 'error', title: 'Erreur lors de la reinitialisation' }),
+      },
+    );
+  };
+
+  return (
+    <Modal
+      open
+      onOpenChange={(v) => { if (!v) { reset(); onClose(); } }}
+      title="Reinitialiser le mot de passe"
+      description={`Definir un nouveau mot de passe pour ${user.first_name} ${user.last_name}`}
+      size="sm"
+    >
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <Input
+          label="Nouveau mot de passe"
+          type="password"
+          error={errors.new_password?.message}
+          required
+          {...register('new_password')}
+        />
+        <Input
+          label="Confirmer le mot de passe"
+          type="password"
+          error={errors.confirm_password?.message}
+          required
+          {...register('confirm_password')}
+        />
+        <div className="flex justify-end gap-3 pt-2">
+          <Button type="button" variant="outline" onClick={() => { reset(); onClose(); }}>
+            Annuler
+          </Button>
+          <Button type="submit" loading={resetPassword.isPending}>
+            Reinitialiser
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function AdminUsersPage() {
   const { toast } = useToast();
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [userToEdit, setUserToEdit] = useState<User | null>(null);
+  const [userToReset, setUserToReset] = useState<User | null>(null);
   const [selectedRole, setSelectedRole] = useState<RoleCode>('DATA_CLERK');
   const [filters, setFilters] = useState<UserFilters>({
     page: 1,
@@ -78,7 +180,10 @@ export default function AdminUsersPage() {
 
   const { data, isLoading } = useUsers(filters);
   const createUser = useCreateUser();
-  const toggleActive = useToggleUserActive();
+  const updateUser = useUpdateUser();
+  const activateUser = useActivateUser();
+  const deactivateUser = useDeactivateUser();
+  const unlockUser = useUnlockUser();
 
   const {
     register,
@@ -136,11 +241,19 @@ export default function AdminUsersPage() {
     {
       key: 'is_active',
       header: 'Statut',
-      render: (user) => (
-        <Badge variant={user.is_active ? 'success' : 'default'}>
-          {user.is_active ? 'Actif' : 'Inactif'}
-        </Badge>
-      ),
+      render: (user) => {
+        const isLocked = user.locked_until && new Date(user.locked_until) > new Date();
+        return (
+          <div className="flex flex-col gap-1">
+            <Badge variant={user.is_active ? 'success' : 'default'}>
+              {user.is_active ? 'Actif' : 'Inactif'}
+            </Badge>
+            {isLocked && (
+              <Badge variant="warning">Bloque</Badge>
+            )}
+          </div>
+        );
+      },
     },
     {
       key: 'last_login',
@@ -166,34 +279,63 @@ export default function AdminUsersPage() {
           <DropdownMenu.Portal>
             <DropdownMenu.Content
               align="end"
-              className="z-50 min-w-[160px] rounded-lg border border-gray-200 bg-white p-1 shadow-lg"
+              className="z-50 min-w-[180px] rounded-lg border border-gray-200 bg-white p-1 shadow-lg"
             >
               <DropdownMenu.Item
                 className="flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm outline-none hover:bg-gray-100"
-                onSelect={(e) => {
-                  e.preventDefault();
-                  toggleActive.mutate(user.id, {
-                    onSuccess: () => toast({
-                      variant: 'success',
-                      title: user.is_active ? 'Utilisateur desactive' : 'Utilisateur active',
-                    }),
-                  });
-                }}
+                onSelect={(e) => { e.preventDefault(); setUserToEdit(user); }}
               >
-                {user.is_active ? (
-                  <>
-                    <UserX className="h-4 w-4 text-red-500" />
-                    <span className="text-red-600">Desactiver</span>
-                  </>
-                ) : (
-                  <>
-                    <UserCheck className="h-4 w-4 text-green-500" />
-                    <span className="text-green-600">Activer</span>
-                  </>
-                )}
+                <Pencil className="h-4 w-4 text-gray-500" />
+                Modifier
               </DropdownMenu.Item>
+              {user.is_active ? (
+                <DropdownMenu.Item
+                  className="flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm outline-none hover:bg-gray-100"
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    deactivateUser.mutate(user.id, {
+                      onSuccess: () => toast({ variant: 'success', title: 'Utilisateur desactive' }),
+                      onError: () => toast({ variant: 'error', title: 'Erreur' }),
+                    });
+                  }}
+                >
+                  <UserX className="h-4 w-4 text-red-500" />
+                  <span className="text-red-600">Desactiver</span>
+                </DropdownMenu.Item>
+              ) : (
+                <DropdownMenu.Item
+                  className="flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm outline-none hover:bg-gray-100"
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    activateUser.mutate(user.id, {
+                      onSuccess: () => toast({ variant: 'success', title: 'Utilisateur active' }),
+                      onError: () => toast({ variant: 'error', title: 'Erreur' }),
+                    });
+                  }}
+                >
+                  <UserCheck className="h-4 w-4 text-green-500" />
+                  <span className="text-green-600">Activer</span>
+                </DropdownMenu.Item>
+              )}
+              {user.locked_until && new Date(user.locked_until) > new Date() && (
+                <DropdownMenu.Item
+                  className="flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm outline-none hover:bg-gray-100"
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    unlockUser.mutate(user.id, {
+                      onSuccess: () => toast({ variant: 'success', title: 'Compte debloque' }),
+                      onError: () => toast({ variant: 'error', title: 'Erreur' }),
+                    });
+                  }}
+                >
+                  <Unlock className="h-4 w-4 text-amber-500" />
+                  <span className="text-amber-600">Debloquer</span>
+                </DropdownMenu.Item>
+              )}
+              <DropdownMenu.Separator className="my-1 h-px bg-gray-100" />
               <DropdownMenu.Item
                 className="flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm outline-none hover:bg-gray-100"
+                onSelect={(e) => { e.preventDefault(); setUserToReset(user); }}
               >
                 <KeyRound className="h-4 w-4 text-gray-500" />
                 Reinitialiser MDP
@@ -229,17 +371,41 @@ export default function AdminUsersPage() {
     });
   };
 
+  const onEditSubmit = (formData: { username: string; email: string; first_name: string; last_name: string; role: string; is_active: boolean }) => {
+    if (!userToEdit) return;
+    updateUser.mutate(
+      {
+        id: userToEdit.id,
+        payload: {
+          email: formData.email,
+          first_name: formData.first_name,
+          last_name: formData.last_name,
+          roles: [formData.role as RoleCode],
+        },
+      },
+      {
+        onSuccess: () => {
+          toast({ variant: 'success', title: 'Utilisateur mis a jour' });
+          setUserToEdit(null);
+        },
+        onError: () => toast({ variant: 'error', title: 'Erreur lors de la mise a jour' }),
+      },
+    );
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
-        title="Gestion des utilisateurs"
-        description="Administration des comptes utilisateurs et des roles"
+        title="Administration"
+        description="Gestion des utilisateurs, audit et parametres systeme"
         actions={
           <Button icon={<Plus className="h-4 w-4" />} onClick={() => setShowCreateModal(true)}>
             Nouvel utilisateur
           </Button>
         }
       />
+
+      <AdminSubNav />
 
       {/* Filters */}
       <Card>
@@ -303,7 +469,7 @@ export default function AdminUsersPage() {
       {/* Create User Modal */}
       <Modal
         open={showCreateModal}
-        onOpenChange={setShowCreateModal}
+        onOpenChange={(v) => { if (!v) { reset(); setSelectedRole('DATA_CLERK'); } setShowCreateModal(v); }}
         title="Nouvel utilisateur"
         description="Creer un nouveau compte utilisateur"
         size="lg"
@@ -364,6 +530,40 @@ export default function AdminUsersPage() {
           </div>
         </form>
       </Modal>
+
+      {/* Edit User Modal */}
+      {userToEdit && (
+        <Modal
+          open
+          onOpenChange={(v) => { if (!v) setUserToEdit(null); }}
+          title="Modifier l'utilisateur"
+          description={`Modifier le compte de ${userToEdit.first_name} ${userToEdit.last_name}`}
+          size="lg"
+        >
+          <UserForm
+            isEdit
+            loading={updateUser.isPending}
+            defaultValues={{
+              username: userToEdit.username,
+              email: userToEdit.email,
+              first_name: userToEdit.first_name,
+              last_name: userToEdit.last_name,
+              role: userToEdit.roles[0]?.code ?? 'DATA_CLERK',
+              is_active: userToEdit.is_active,
+            }}
+            onSubmit={onEditSubmit}
+            onCancel={() => setUserToEdit(null)}
+          />
+        </Modal>
+      )}
+
+      {/* Reset Password Modal */}
+      {userToReset && (
+        <ResetPasswordModal
+          user={userToReset}
+          onClose={() => setUserToReset(null)}
+        />
+      )}
     </div>
   );
 }

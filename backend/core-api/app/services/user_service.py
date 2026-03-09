@@ -11,7 +11,7 @@ from sqlalchemy.orm import selectinload
 
 
 from common.models import User, SiteUser, Role
-from common.schemas.user import UserCreate, UserUpdate
+from common.schemas.user import UserCreate, UserUpdate, SiteRoleAssignmentResponse
 from common.auth.password import hash_password, validate_password_strength
 
 from .audit_service import AuditService
@@ -222,6 +222,115 @@ class UserService:
         await self.db.commit()
         await self.db.refresh(user)
         return user
+
+    async def activate_user(self, user_id: UUID, current_user: User) -> Optional[User]:
+        """Reactivate a deactivated user."""
+        user = await self.get_user_by_id(user_id)
+        if not user:
+            return None
+
+        user.is_active = True
+        user.updated_by = current_user.id
+
+        await self.audit_service.log_action(
+            event_type="UPDATE",
+            table_name="users",
+            record_id=user.id,
+            user_id=current_user.id,
+            old_values={"is_active": False},
+            new_values={"is_active": True},
+            action="User reactivated",
+        )
+
+        await self.db.commit()
+        await self.db.refresh(user)
+        return user
+
+    async def unlock_user(self, user_id: UUID, current_user: User) -> Optional[User]:
+        """Unlock a locked user account."""
+        user = await self.get_user_by_id(user_id)
+        if not user:
+            return None
+
+        user.locked_until = None
+        user.failed_login_attempts = 0
+        user.updated_by = current_user.id
+
+        await self.audit_service.log_action(
+            event_type="UPDATE",
+            table_name="users",
+            record_id=user.id,
+            user_id=current_user.id,
+            old_values={"locked_until": str(user.locked_until), "failed_login_attempts": user.failed_login_attempts},
+            new_values={"locked_until": None, "failed_login_attempts": 0},
+            action="User account unlocked by admin",
+        )
+
+        await self.db.commit()
+        await self.db.refresh(user)
+        return user
+
+    async def admin_reset_password(
+        self, user_id: UUID, new_password: str, current_user: User
+    ) -> Optional[User]:
+        """Force-reset a user's password (admin action)."""
+        user = await self.get_user_by_id(user_id)
+        if not user:
+            return None
+
+        is_valid, errors = validate_password_strength(new_password)
+        if not is_valid:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"message": "Password does not meet requirements", "errors": errors},
+            )
+
+        user.password_hash = hash_password(new_password)
+        user.password_changed_at = datetime.now(timezone.utc)
+        user.updated_by = current_user.id
+
+        await self.audit_service.log_action(
+            event_type="UPDATE",
+            table_name="users",
+            record_id=user.id,
+            user_id=current_user.id,
+            new_values={"password_reset": True},
+            action="Password reset by admin",
+        )
+
+        await self.db.commit()
+        await self.db.refresh(user)
+        return user
+
+    async def get_user_site_roles(self, user_id: UUID) -> list[SiteRoleAssignmentResponse]:
+        """Get all site role assignments for a user."""
+        query = (
+            select(SiteUser)
+            .where(SiteUser.user_id == user_id)
+            .options(
+                selectinload(SiteUser.site),
+                selectinload(SiteUser.role),
+            )
+            .order_by(SiteUser.assigned_at.desc())
+        )
+        result = await self.db.execute(query)
+        site_users = result.scalars().all()
+
+        return [
+            SiteRoleAssignmentResponse(
+                id=su.id,
+                site_id=su.site_id,
+                site_number=su.site.site_number,
+                site_name=su.site.name,
+                role_id=su.role_id,
+                role_code=su.role.code,
+                role_name=su.role.name,
+                is_primary=su.is_primary,
+                assigned_at=su.assigned_at.isoformat(),
+                is_active=su.unassigned_at is None,
+            )
+            for su in site_users
+        ]
 
     async def assign_site_role(
         self,

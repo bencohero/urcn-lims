@@ -71,6 +71,8 @@ export interface User {
   sites: UserSite[];
   permissions?: Record<string, Record<string, boolean>>;
   last_login?: string;
+  locked_until?: string;
+  failed_login_attempts?: number;
   created_at: string;
   updated_at?: string;
 }
