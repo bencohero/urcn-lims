@@ -114,19 +114,19 @@ export interface ResetPasswordRequest {
 
 // --- Study Types ---
 
-export type StudyStatus = 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'TERMINATED';
+export type StudyStatus = 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'TERMINATED' | 'CANCELLED';
 export type StudyPhase = 'Phase I' | 'Phase II' | 'Phase III' | 'Phase IV';
 
 export interface Study {
   id: string;
   protocol_number: string;
   title: string;
-  sponsor: string;
-  phase: StudyPhase;
-  therapeutic_area: string;
-  start_date: string;
-  end_date: string;
-  estimated_enrollment: number;
+  sponsor?: string;
+  phase?: StudyPhase;
+  therapeutic_area?: string;
+  start_date?: string;
+  end_date?: string;
+  estimated_enrollment?: number;
   retention_period_years: number;
   description?: string;
   status: StudyStatus;

@@ -58,11 +58,11 @@ const editStudySchema = z.object({
 
 type EditStudyFormValues = z.infer<typeof editStudySchema>;
 
-function InfoItem({ label, value }: { label: string; value: string }) {
+function InfoItem({ label, value }: { label: string; value: string | number | undefined | null }) {
   return (
     <div>
       <dt className="text-xs font-medium text-gray-500">{label}</dt>
-      <dd className="mt-0.5 text-sm text-gray-900">{value}</dd>
+      <dd className="mt-0.5 text-sm text-gray-900">{value ?? '—'}</dd>
     </div>
   );
 }
@@ -90,14 +90,14 @@ function EditStudyForm({
 
   const handleFormSubmit = (data: EditStudyFormValues) => {
     const payload: UpdateStudyRequest = {};
-    if (data.title) payload.title = data.title;
-    if (data.sponsor) payload.sponsor = data.sponsor;
+    if (data.title !== undefined) payload.title = data.title;
+    if (data.sponsor !== undefined) payload.sponsor = data.sponsor;
     if (data.phase) payload.phase = data.phase;
-    if (data.therapeutic_area) payload.therapeutic_area = data.therapeutic_area;
-    if (data.start_date) payload.start_date = data.start_date;
-    if (data.end_date) payload.end_date = data.end_date;
-    if (data.estimated_enrollment) payload.estimated_enrollment = data.estimated_enrollment;
-    if (data.retention_period_years) payload.retention_period_years = data.retention_period_years;
+    if (data.therapeutic_area !== undefined) payload.therapeutic_area = data.therapeutic_area;
+    if (data.start_date !== undefined) payload.start_date = data.start_date;
+    if (data.end_date !== undefined) payload.end_date = data.end_date;
+    if (data.estimated_enrollment !== undefined) payload.estimated_enrollment = data.estimated_enrollment;
+    if (data.retention_period_years !== undefined) payload.retention_period_years = data.retention_period_years;
     if (data.description !== undefined) payload.description = data.description;
     if (data.status) payload.status = data.status;
     onSubmit(payload);
@@ -270,7 +270,7 @@ export default function StudyDetailPage() {
 
       <PageHeader
         title={study.protocol_number}
-        description={study.sponsor}
+        description={[study.title, study.sponsor].filter(Boolean).join(' — ')}
         actions={
           <div className="flex items-center gap-2">
             <StatusBadge status={study.status} />
@@ -300,7 +300,7 @@ export default function StudyDetailPage() {
               <InfoItem label="Domaine therapeutique" value={study.therapeutic_area} />
               <InfoItem
                 label="Participants estimes"
-                value={study.estimated_enrollment.toLocaleString('fr-FR')}
+                value={study.estimated_enrollment?.toLocaleString('fr-FR')}
               />
               <InfoItem
                 label="Retention"
