@@ -233,10 +233,13 @@ export interface Container {
 export type DocumentType = 'CONSENT' | 'CRF' | 'SOURCE_DOC';
 export type DocumentStatus = 'IN_STORAGE' | 'CHECKED_OUT' | 'IN_TRANSIT' | 'ARCHIVED' | 'DESTROYED';
 export type ConfidentialityLevel = 'LOW' | 'MEDIUM' | 'HIGH';
-export type PhysicalCondition = 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR' | 'DAMAGED';
+export type PhysicalCondition = 'GOOD' | 'FAIR' | 'DAMAGED';
 
 export interface Document {
   id: string;
+  study_id: string;
+  site_id: string;
+  container_id?: string;
   study?: { protocol_number: string; title: string };
   site?: { site_number: string; name: string };
   document_type: DocumentType;
@@ -289,9 +292,11 @@ export interface CreateDocumentRequest {
 
 export interface UpdateDocumentRequest {
   container_id?: string;
+  description?: string;
   physical_condition?: PhysicalCondition;
   location_notes?: string;
   status?: DocumentStatus;
+  confidentiality_level?: ConfidentialityLevel;
 }
 
 export interface DocumentFilters extends PaginationParams {

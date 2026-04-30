@@ -59,6 +59,9 @@ class DocumentUpdate(BaseSchema):
         default=None, pattern="^(GOOD|FAIR|DAMAGED)$"
     )
     location_notes: Optional[str] = None
+    status: Optional[str] = Field(
+        default=None, pattern="^(IN_STORAGE|CHECKED_OUT|IN_TRANSIT|ARCHIVED|DESTROYED)$"
+    )
     confidentiality_level: Optional[str] = Field(
         default=None, pattern="^(LOW|MEDIUM|HIGH|CRITICAL)$"
     )
@@ -103,12 +106,16 @@ class DocumentResponse(IDTimestampSchema, DocumentBase):
     """Document response schema."""
 
     stored_item_id: UUID = Field(validation_alias=AliasChoices("id", "stored_item_id"))
+    study_id: UUID
+    site_id: UUID
+    container_id: Optional[UUID] = None
     status: str
     storage_date: date
     expected_retention_until: Optional[date] = None
     internal_code: Optional[str] = None
     description: Optional[str] = None
     physical_condition: str
+    location_notes: Optional[str] = None
     study: Optional[StudySummary] = None
     site: Optional[SiteSummary] = None
     container: Optional[ContainerSummary] = None

@@ -21,6 +21,7 @@ import { Input } from '@/components/ui/Input';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useToast } from '@/components/ui/Toast';
 import { useDocumentById, useDocumentHistory, useUpdateDocument } from '@/hooks/useDocuments';
+import { useStorageLocations, useContainersByLocation } from '@/hooks/useStorage';
 import { formatDate, formatDateTime } from '@/lib/utils/utils';
 import { useState } from 'react';
 import type { AuditEntry } from '@/types';
@@ -32,26 +33,22 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 const CONDITION_LABELS: Record<string, string> = {
-  EXCELLENT: 'Excellent',
   GOOD: 'Bon',
   FAIR: 'Correct',
-  POOR: 'Mauvais',
   DAMAGED: 'Endommage',
 };
 
 const PHYSICAL_CONDITIONS = [
-  { value: 'EXCELLENT', label: 'Excellent' },
   { value: 'GOOD', label: 'Bon' },
   { value: 'FAIR', label: 'Correct' },
-  { value: 'POOR', label: 'Mauvais' },
   { value: 'DAMAGED', label: 'Endommage' },
 ];
 
-const STATUS_OPTIONS = [
-  { value: 'IN_STORAGE', label: 'En stockage' },
-  { value: 'CHECKED_OUT', label: 'Sorti' },
-  { value: 'IN_TRANSIT', label: 'En transit' },
-  { value: 'ARCHIVED', label: 'Archive' },
+const CONFIDENTIALITY_OPTIONS = [
+  { value: 'LOW', label: 'Faible' },
+  { value: 'MEDIUM', label: 'Moyen' },
+  { value: 'HIGH', label: 'Eleve' },
+  { value: 'CRITICAL', label: 'Critique' },
 ];
 
 export default function DocumentDetailPage() {
@@ -60,33 +57,64 @@ export default function DocumentDetailPage() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('info');
   const [showEditModal, setShowEditModal] = useState(false);
+  const [editLocationId, setEditLocationId] = useState('');
   const [editFields, setEditFields] = useState({
     container_id: '',
     physical_condition: '',
     location_notes: '',
-    status: '',
+    description: '',
+    confidentiality_level: '',
   });
 
   const { data: doc, isLoading } = useDocumentById(id!);
   const { data: history, isLoading: historyLoading } = useDocumentHistory(id!);
   const updateDocument = useUpdateDocument();
 
+  const { data: locationsData } = useStorageLocations(
+    showEditModal && doc?.site_id ? { site_id: doc.site_id, page_size: 100 } : undefined,
+  );
+  const { data: containersData } = useContainersByLocation(
+    showEditModal ? editLocationId || undefined : undefined,
+  );
+
+  const locationOptions = (locationsData?.items ?? []).map((l) => ({
+    value: l.id,
+    label: l.name,
+  }));
+  const containerOptions = (containersData?.items ?? []).map((c) => ({
+    value: c.id,
+    label: c.name,
+  }));
+
   const openEditModal = () => {
+    setEditLocationId('');
     setEditFields({
-      container_id: '',
+      container_id: doc?.container_id || '',
       physical_condition: doc?.physical_condition || '',
       location_notes: doc?.location_notes || '',
-      status: doc?.status || '',
+      description: doc?.description || '',
+      confidentiality_level: doc?.confidentiality_level || '',
     });
     setShowEditModal(true);
   };
 
   const handleEditSubmit = () => {
     const payload: Record<string, string> = {};
-    if (editFields.container_id) payload.container_id = editFields.container_id;
-    if (editFields.physical_condition) payload.physical_condition = editFields.physical_condition;
-    if (editFields.location_notes !== doc?.location_notes) payload.location_notes = editFields.location_notes;
-    if (editFields.status && editFields.status !== doc?.status) payload.status = editFields.status;
+    if (editFields.physical_condition && editFields.physical_condition !== doc?.physical_condition)
+      payload.physical_condition = editFields.physical_condition;
+    if (editFields.location_notes !== (doc?.location_notes ?? ''))
+      payload.location_notes = editFields.location_notes;
+    if (editFields.description !== (doc?.description ?? ''))
+      payload.description = editFields.description;
+    if (editFields.confidentiality_level && editFields.confidentiality_level !== doc?.confidentiality_level)
+      payload.confidentiality_level = editFields.confidentiality_level;
+    if (editFields.container_id && editFields.container_id !== (doc?.container_id ?? ''))
+      payload.container_id = editFields.container_id;
+
+    if (Object.keys(payload).length === 0) {
+      setShowEditModal(false);
+      return;
+    }
 
     updateDocument.mutate(
       { id: id!, payload },
@@ -274,25 +302,9 @@ export default function DocumentDetailPage() {
                   <Spinner />
                 </div>
               ) : (history as AuditEntry[] | undefined)?.length ? (
-                <div className="space-y-4">
+                <div className="divide-y divide-gray-100">
                   {(history as AuditEntry[]).map((entry) => (
-                    <div key={entry.id} className="flex gap-3 border-b border-gray-50 pb-3 last:border-0">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100">
-                        <History className="h-4 w-4 text-gray-500" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm text-gray-900">
-                          <span className="font-medium">{entry.user.full_name}</span>
-                          {' '}a effectue une action{' '}
-                          <Badge variant={entry.event_type === 'CREATE' ? 'success' : entry.event_type === 'DELETE' ? 'danger' : 'info'}>
-                            {entry.event_type}
-                          </Badge>
-                        </p>
-                        <p className="text-xs text-gray-500 mt-0.5">
-                          {formatDateTime(entry.timestamp)}
-                        </p>
-                      </div>
-                    </div>
+                    <HistoryEntry key={entry.id} entry={entry} />
                   ))}
                 </div>
               ) : (
@@ -311,12 +323,29 @@ export default function DocumentDetailPage() {
         description="Modifiez les informations de stockage et l'etat du document"
       >
         <div className="space-y-4">
-          <Input
-            label="ID Conteneur (si deplacement)"
-            placeholder="UUID du nouveau conteneur"
-            value={editFields.container_id}
-            onChange={(e) => setEditFields((prev) => ({ ...prev, container_id: e.target.value }))}
+          <Select
+            label="Emplacement (pour changer de conteneur)"
+            options={locationOptions}
+            value={editLocationId}
+            onValueChange={(val) => {
+              setEditLocationId(val);
+              setEditFields((prev) => ({ ...prev, container_id: '' }));
+            }}
+            placeholder="Selectionner un emplacement..."
           />
+          <Select
+            label="Conteneur"
+            options={containerOptions}
+            value={editFields.container_id}
+            onValueChange={(val) => setEditFields((prev) => ({ ...prev, container_id: val }))}
+            placeholder={editLocationId ? 'Selectionner un conteneur...' : 'Selectionnez d\'abord un emplacement'}
+            disabled={!editLocationId}
+          />
+          {doc?.container && !editLocationId && (
+            <p className="text-xs text-gray-500">
+              Conteneur actuel : <span className="font-medium">{doc.container.name}</span>
+            </p>
+          )}
           <Select
             label="Etat physique"
             options={PHYSICAL_CONDITIONS}
@@ -325,10 +354,16 @@ export default function DocumentDetailPage() {
             placeholder="Selectionner..."
           />
           <Select
-            label="Statut"
-            options={STATUS_OPTIONS}
-            value={editFields.status}
-            onValueChange={(val) => setEditFields((prev) => ({ ...prev, status: val }))}
+            label="Niveau de confidentialite"
+            options={CONFIDENTIALITY_OPTIONS}
+            value={editFields.confidentiality_level}
+            onValueChange={(val) => setEditFields((prev) => ({ ...prev, confidentiality_level: val }))}
+          />
+          <Input
+            label="Description"
+            placeholder="Description du document"
+            value={editFields.description}
+            onChange={(e) => setEditFields((prev) => ({ ...prev, description: e.target.value }))}
           />
           <Input
             label="Notes d'emplacement"
@@ -350,11 +385,86 @@ export default function DocumentDetailPage() {
   );
 }
 
-function InfoItem({ label, value }: { label: string; value: string }) {
+function InfoItem({ label, value }: { label: string; value: string | number | undefined | null }) {
   return (
     <div>
       <dt className="text-xs font-medium text-gray-500">{label}</dt>
-      <dd className="mt-0.5 text-sm text-gray-900">{value}</dd>
+      <dd className="mt-0.5 text-sm text-gray-900">{value ?? '—'}</dd>
+    </div>
+  );
+}
+
+const EVENT_LABELS: Record<string, string> = {
+  CREATE: 'Création',
+  UPDATE: 'Modification',
+  DELETE: 'Suppression',
+};
+
+const FIELD_LABELS: Record<string, string> = {
+  container_id: 'Conteneur',
+  physical_condition: 'Etat physique',
+  location_notes: 'Notes emplacement',
+  description: 'Description',
+  confidentiality_level: 'Confidentialite',
+  status: 'Statut',
+  document_type: 'Type',
+  subject_id: 'Sujet',
+  visit_number: 'Visite',
+  form_name: 'Formulaire',
+  version: 'Version',
+  page_count: 'Pages',
+  signature_required: 'Signature requise',
+  signed_date: 'Date signature',
+  storage_date: 'Date stockage',
+  expected_retention_until: 'Retention',
+};
+
+function HistoryEntry({ entry }: { entry: AuditEntry }) {
+  const changedFields = entry.new_values ? Object.keys(entry.new_values) : [];
+  const variantMap: Record<string, 'success' | 'danger' | 'info'> = {
+    CREATE: 'success',
+    DELETE: 'danger',
+    UPDATE: 'info',
+  };
+
+  return (
+    <div className="py-4 first:pt-0 last:pb-0">
+      <div className="flex items-start gap-3">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100">
+          <History className="h-4 w-4 text-gray-500" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-medium text-gray-900">{entry.user.full_name}</span>
+            <Badge variant={variantMap[entry.event_type] ?? 'info'}>
+              {EVENT_LABELS[entry.event_type] ?? entry.event_type}
+            </Badge>
+            <span className="text-xs text-gray-400">{formatDateTime(entry.timestamp)}</span>
+          </div>
+
+          {changedFields.length > 0 && (
+            <div className="mt-2 space-y-1">
+              {changedFields.map((field) => {
+                const oldVal = entry.old_values?.[field];
+                const newVal = entry.new_values?.[field];
+                const label = FIELD_LABELS[field] ?? field;
+                return (
+                  <div key={field} className="text-xs text-gray-600 flex items-center gap-1.5 flex-wrap">
+                    <span className="font-medium text-gray-700">{label} :</span>
+                    {oldVal !== undefined && oldVal !== null && (
+                      <>
+                        <span className="line-through text-gray-400">{String(oldVal)}</span>
+                        <span className="text-gray-400">→</span>
+                      </>
+                    )}
+                    <span className="text-gray-900">{newVal !== null && newVal !== undefined ? String(newVal) : '—'}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

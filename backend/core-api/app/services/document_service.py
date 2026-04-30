@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 
-from common.models import Document, StoredItem, User  # StoredItem used in query filters
+from common.models import Document, StoredItem, User, Container  # StoredItem used in query filters
 from common.schemas.document import DocumentCreate, DocumentUpdate
 from common.auth.permissions import PermissionChecker
 
@@ -106,7 +106,7 @@ class DocumentService:
             .options(
                 selectinload(Document.study),
                 selectinload(Document.site),
-                selectinload(Document.container),
+                selectinload(Document.container).selectinload(Container.location),
                 selectinload(Document.movements),
                 selectinload(Document.access_requests),
             )
@@ -184,36 +184,42 @@ class DocumentService:
         if not document:
             return None
 
-        # Store old values for audit
-        old_values = {
-            "container_id": str(document.container_id) if document.container_id else None,
-            "physical_condition": document.physical_condition,
-            "location_notes": document.location_notes,
-        }
-
-        # Update fields
         update_data = document_data.model_dump(exclude_unset=True)
+
+        # Capture old values for audit from the same keys being updated
+        old_values = {}
+        for key in update_data:
+            val = getattr(document, key, None)
+            old_values[key] = str(val) if val is not None else None
+
+        # All fields (StoredItem + Document) are directly on document due to joined-table inheritance
         for key, value in update_data.items():
-            if hasattr(document, key):
-                setattr(document, key, value)
-            elif hasattr(document.stored_item, key):
-                setattr(document.stored_item, key, value)
+            setattr(document, key, value)
 
         document.updated_by = user.id
 
-        # Audit
         await self.audit_service.log_action(
             event_type="UPDATE",
             table_name="documents",
             record_id=document.id,
             user_id=user.id,
             old_values=old_values,
-            new_values=update_data,
+            new_values={k: str(v) if v is not None else None for k, v in update_data.items()},
         )
 
         await self.db.commit()
-        await self.db.refresh(document)
-        return document
+
+        # Re-query with relationships to avoid MissingGreenlet after commit
+        result = await self.db.execute(
+            select(Document)
+            .where(Document.id == document.id)
+            .options(
+                selectinload(Document.study),
+                selectinload(Document.site),
+                selectinload(Document.container),
+            )
+        )
+        return result.scalar_one()
 
     async def delete_document(
         self, document_id: UUID, user: User

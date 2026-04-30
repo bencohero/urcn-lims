@@ -390,7 +390,6 @@ export default function AdminUsersPage() {
           email: formData.email,
           first_name: formData.first_name,
           last_name: formData.last_name,
-          roles: [formData.role as RoleCode],
         },
       },
       {
@@ -523,13 +522,13 @@ export default function AdminUsersPage() {
               {...register('password')}
             />
           </div>
-          <Select
+          {/* <Select
             label="Role"
             options={ROLE_OPTIONS.filter((r) => r.value !== '')}
             value={selectedRole}
             onValueChange={(val) => setSelectedRole(val as RoleCode)}
             required
-          />
+          /> */}
           <div className="flex justify-end gap-3 border-t border-gray-100 pt-4">
             <Button type="button" variant="outline" onClick={() => setShowCreateModal(false)}>
               Annuler
@@ -558,7 +557,6 @@ export default function AdminUsersPage() {
               email: userToEdit.email,
               first_name: userToEdit.first_name,
               last_name: userToEdit.last_name,
-              role: userToEdit.roles[0]?.code ?? 'DATA_CLERK',
               is_active: userToEdit.is_active,
             }}
             onSubmit={onEditSubmit}
