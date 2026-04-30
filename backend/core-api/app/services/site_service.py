@@ -1,6 +1,6 @@
 """Site service."""
 
-from typing import List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
 
 from sqlalchemy import and_, func, select
@@ -10,7 +10,7 @@ from sqlalchemy.orm import selectinload
 import sys
 sys.path.insert(0, "/home/skamboule/claude-code/urcn-lims/backend")
 
-from common.models import Site, User
+from common.models import Site, StorageLocation, User
 from common.schemas.site import SiteCreate, SiteUpdate
 from common.auth.permissions import PermissionChecker
 
@@ -122,8 +122,14 @@ class SiteService:
         )
 
         await self.db.commit()
-        await self.db.refresh(site)
-        return site
+        result = await self.db.execute(
+            select(Site).where(Site.id == site.id)
+            .options(
+                selectinload(Site.principal_investigator),
+                selectinload(Site.storage_locations),
+            )
+        )
+        return result.scalar_one()
 
     async def update_site(
         self, site_id: UUID, site_data: SiteUpdate, user: User
@@ -151,5 +157,65 @@ class SiteService:
         )
 
         await self.db.commit()
-        await self.db.refresh(site)
-        return site
+        result = await self.db.execute(
+            select(Site).where(Site.id == site.id)
+            .options(
+                selectinload(Site.principal_investigator),
+                selectinload(Site.storage_locations),
+            )
+        )
+        return result.scalar_one()
+
+    async def get_site_locations(
+        self, site_id: UUID, user: User
+    ) -> Optional[List[StorageLocation]]:
+        """Get all storage locations for a site."""
+        site = await self.get_site_by_id(site_id, user)
+        if not site:
+            return None
+        result = await self.db.execute(
+            select(StorageLocation)
+            .where(StorageLocation.site_id == site_id)
+            .order_by(StorageLocation.name)
+        )
+        return result.scalars().all()
+
+    async def get_site_capacity(
+        self, site_id: UUID, user: User
+    ) -> Optional[Dict[str, Any]]:
+        """Get capacity summary for a site."""
+        site = await self.get_site_by_id(site_id, user)
+        if not site:
+            return None
+
+        locations = site.storage_locations
+        total_locations = len(locations)
+        total_capacity = sum(
+            float(loc.capacity_cubic_meters)
+            for loc in locations
+            if loc.capacity_cubic_meters is not None
+        )
+        avg_usage = (
+            sum(float(loc.current_usage_percent) for loc in locations) / total_locations
+            if total_locations > 0
+            else 0.0
+        )
+
+        return {
+            "site_id": str(site_id),
+            "site_name": site.name,
+            "total_locations": total_locations,
+            "total_capacity_cubic_meters": total_capacity,
+            "current_usage_percent": round(avg_usage, 2),
+            "locations": [
+                {
+                    "id": str(loc.id),
+                    "name": loc.name,
+                    "code": loc.code or "",
+                    "capacity_cubic_meters": float(loc.capacity_cubic_meters) if loc.capacity_cubic_meters else 0.0,
+                    "current_usage_percent": float(loc.current_usage_percent),
+                    "status": loc.status,
+                }
+                for loc in locations
+            ],
+        }

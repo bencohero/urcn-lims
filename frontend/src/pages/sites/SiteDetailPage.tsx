@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { ReactNode } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -52,17 +53,11 @@ const editSiteSchema = z.object({
   status: z.enum(['ACTIVE', 'INACTIVE', 'CLOSED']).optional(),
   has_offline_capability: z.boolean().optional(),
   timezone: z.string().optional().or(z.literal('')),
-  principal_investigator_name: z.string().optional().or(z.literal('')),
-  principal_investigator_email: z
-    .string()
-    .email('Email invalide')
-    .optional()
-    .or(z.literal('')),
 });
 
 type EditSiteFormValues = z.infer<typeof editSiteSchema>;
 
-function InfoItem({ label, value }: { label: string; value: string | React.ReactNode }) {
+function InfoItem({ label, value }: { label: string; value: string | number | null | undefined | ReactNode }) {
   return (
     <div>
       <dt className="text-xs font-medium text-gray-500">{label}</dt>
@@ -149,9 +144,9 @@ function EditSiteForm({
 
   const handleFormSubmit = (data: EditSiteFormValues) => {
     const payload: UpdateSiteRequest = {};
-    if (data.name) payload.name = data.name;
-    if (data.country) payload.country = data.country;
-    if (data.city) payload.city = data.city;
+    if (data.name !== undefined) payload.name = data.name;
+    if (data.country !== undefined) payload.country = data.country;
+    if (data.city !== undefined) payload.city = data.city;
     if (data.address !== undefined) payload.address = data.address;
     if (data.postal_code !== undefined) payload.postal_code = data.postal_code;
     if (data.phone !== undefined) payload.phone = data.phone;
@@ -160,14 +155,6 @@ function EditSiteForm({
     if (data.has_offline_capability !== undefined)
       payload.has_offline_capability = data.has_offline_capability;
     if (data.timezone !== undefined) payload.timezone = data.timezone;
-    if (data.principal_investigator_name) {
-      payload.principal_investigator = {
-        name: data.principal_investigator_name,
-        ...(data.principal_investigator_email
-          ? { email: data.principal_investigator_email }
-          : {}),
-      };
-    }
     onSubmit(payload);
   };
 
@@ -251,23 +238,6 @@ function EditSiteForm({
           <label htmlFor="edit_has_offline_capability" className="text-sm text-gray-700">
             Capacite hors ligne
           </label>
-        </div>
-      </div>
-
-      <div className="border-t pt-4">
-        <p className="text-sm font-medium text-gray-700 mb-3">Investigateur principal</p>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Input
-            label="Nom"
-            error={errors.principal_investigator_name?.message}
-            {...register('principal_investigator_name')}
-          />
-          <Input
-            label="Email"
-            type="email"
-            error={errors.principal_investigator_email?.message}
-            {...register('principal_investigator_email')}
-          />
         </div>
       </div>
 
@@ -505,7 +475,7 @@ export default function SiteDetailPage() {
                         <p className="text-sm font-medium text-gray-700">Utilisation globale</p>
                         <p className="text-xs text-gray-500">
                           {capacity.total_locations} emplacement{capacity.total_locations > 1 ? 's' : ''} —{' '}
-                          {capacity.total_capacity_cubic_meters.toLocaleString('fr-FR')} m³ total
+                          {capacity.total_capacity_cubic_meters?.toLocaleString('fr-FR') ?? '0'} m³ total
                         </p>
                       </div>
                       <span
@@ -541,7 +511,7 @@ export default function SiteDetailPage() {
                             <div className="flex-1">
                               <CapacityBar
                                 percent={loc.current_usage_percent}
-                                label={`${loc.capacity_cubic_meters.toLocaleString('fr-FR')} m³`}
+                                label={loc.capacity_cubic_meters ? `${loc.capacity_cubic_meters.toLocaleString('fr-FR')} m³` : undefined}
                               />
                             </div>
                             <div className="w-16 text-right flex-shrink-0">
@@ -578,8 +548,6 @@ export default function SiteDetailPage() {
             status: site.status,
             has_offline_capability: site.has_offline_capability,
             timezone: site.timezone,
-            principal_investigator_name: site.principal_investigator?.name,
-            principal_investigator_email: site.principal_investigator?.email,
           }}
           onSubmit={handleUpdate}
           onCancel={() => setShowEditModal(false)}

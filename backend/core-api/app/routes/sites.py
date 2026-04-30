@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from common.database import get_db
 from common.models import User
 from common.schemas.site import SiteCreate, SiteResponse, SiteUpdate
+from common.schemas.storage import StorageLocationResponse
 from common.schemas.response import APIResponse, PaginatedResponse
 from common.auth.dependencies import get_current_user, require_permission
 
@@ -80,6 +81,37 @@ async def get_site(
         success=True,
         data=SiteResponse.model_validate(site),
     )
+
+
+@router.get("/{site_id}/locations", response_model=APIResponse[list[StorageLocationResponse]])
+async def get_site_locations(
+    site_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get storage locations for a site."""
+    service = SiteService(db)
+    locations = await service.get_site_locations(site_id, current_user)
+    if locations is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Site not found")
+    return APIResponse(
+        success=True,
+        data=[StorageLocationResponse.model_validate(loc) for loc in locations],
+    )
+
+
+@router.get("/{site_id}/capacity", response_model=APIResponse[dict])
+async def get_site_capacity(
+    site_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get capacity summary for a site."""
+    service = SiteService(db)
+    capacity = await service.get_site_capacity(site_id, current_user)
+    if capacity is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Site not found")
+    return APIResponse(success=True, data=capacity)
 
 
 @router.put("/{site_id}", response_model=APIResponse[SiteResponse])

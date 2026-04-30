@@ -37,10 +37,6 @@ export interface UpdateSiteRequest {
   status?: Site['status'];
   has_offline_capability?: boolean;
   timezone?: string;
-  principal_investigator?: {
-    name: string;
-    email?: string;
-  };
 }
 
 export interface SiteCapacity {

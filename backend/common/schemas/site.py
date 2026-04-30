@@ -37,11 +37,13 @@ class SiteUpdate(BaseSchema):
     """Schema for updating a site."""
 
     name: Optional[str] = Field(default=None, max_length=255)
+    country: Optional[str] = Field(default=None, max_length=100)
+    city: Optional[str] = Field(default=None, max_length=100)
     address: Optional[str] = None
     postal_code: Optional[str] = Field(default=None, max_length=20)
     phone: Optional[str] = Field(default=None, max_length=20)
     email: Optional[EmailStr] = None
-    principal_investigator_id: Optional[UUID] = None
+    timezone: Optional[str] = Field(default=None, max_length=50)
     status: Optional[str] = Field(default=None, pattern="^(ACTIVE|INACTIVE|CLOSED)$")
     closure_date: Optional[date] = None
     has_offline_capability: Optional[bool] = None
@@ -52,8 +54,8 @@ class PrincipalInvestigator(BaseSchema):
     """PI summary for site response."""
 
     id: UUID
-    name: str
-    email: str
+    name: str = Field(validation_alias=AliasChoices("full_name", "name"))
+    email: Optional[str] = None
 
 
 class SiteResponse(IDTimestampSchema, SiteBase):
