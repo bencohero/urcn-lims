@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/Badge';
 import { useToast } from '@/components/ui/Toast';
 import { useSites, useCreateSite } from '@/hooks/useSites';
 import { useStudies } from '@/hooks/useStudies';
+import { useUsers } from '@/hooks/useUsers';
 import { formatDate } from '@/lib/utils/utils';
 import type { Site, SiteFilters } from '@/types';
 import type { CreateSiteRequest } from '@/lib/api/sites';
@@ -38,12 +39,7 @@ const createSiteSchema = z.object({
   email: z.string().email('Email invalide').optional().or(z.literal('')),
   has_offline_capability: z.boolean().default(false),
   activation_date: z.string().optional().or(z.literal('')),
-  principal_investigator_name: z.string().optional().or(z.literal('')),
-  principal_investigator_email: z
-    .string()
-    .email('Email invalide')
-    .optional()
-    .or(z.literal('')),
+  principal_investigator_id: z.string().uuid().optional().or(z.literal('')),
 });
 
 type CreateSiteFormValues = z.infer<typeof createSiteSchema>;
@@ -132,11 +128,12 @@ function CreateSiteForm({
   });
 
   const { data: studiesData } = useStudies({ page_size: 100 });
+  const { data: usersData } = useUsers({ page_size: 200, is_active: true });
+
   const studyOptions = (studiesData?.items ?? []).map((s) => ({
     value: s.id,
     label: `${s.protocol_number} — ${s.title}`,
   }));
-
   const handleFormSubmit = (data: CreateSiteFormValues) => {
     const payload: CreateSiteRequest = {
       study_id: data.study_id,
@@ -150,14 +147,7 @@ function CreateSiteForm({
     if (data.phone) payload.phone = data.phone;
     if (data.email) payload.email = data.email;
     if (data.activation_date) payload.activation_date = data.activation_date;
-    if (data.principal_investigator_name) {
-      payload.principal_investigator = {
-        name: data.principal_investigator_name,
-        ...(data.principal_investigator_email
-          ? { email: data.principal_investigator_email }
-          : {}),
-      };
-    }
+    if (data.principal_investigator_id) payload.principal_investigator_id = data.principal_investigator_id;
     onSubmit(payload);
   };
 
@@ -247,21 +237,22 @@ function CreateSiteForm({
       </div>
 
       <div className="border-t pt-4">
-        <p className="text-sm font-medium text-gray-700 mb-3">Investigateur principal (optionnel)</p>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Input
-            label="Nom"
-            placeholder="Nom de l'investigateur"
-            error={errors.principal_investigator_name?.message}
-            {...register('principal_investigator_name')}
-          />
-          <Input
-            label="Email"
-            type="email"
-            placeholder="investigateur@hopital.com"
-            error={errors.principal_investigator_email?.message}
-            {...register('principal_investigator_email')}
-          />
+        <div>
+          <label htmlFor="create_pi" className="block text-sm font-medium text-gray-700 mb-1.5">
+            Investigateur principal (optionnel)
+          </label>
+          <select
+            id="create_pi"
+            {...register('principal_investigator_id')}
+            className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <option value="">Aucun investigateur</option>
+            {(usersData?.items ?? []).map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.first_name} {u.last_name} ({u.username})
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -281,13 +272,9 @@ export default function SitesListPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [filters, setFilters] = useState<SiteFilters>({ page: 1, page_size: 25 });
-  const [countrySearch, setCountrySearch] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
 
-  const { data, isLoading } = useSites({
-    ...filters,
-    ...(countrySearch ? { country: countrySearch } : {}),
-  });
+  const { data, isLoading } = useSites(filters);
   const createSite = useCreateSite();
 
   const handleSort = (key: string) => {
@@ -325,11 +312,11 @@ export default function SitesListPage() {
         <div className="p-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Input
-              placeholder="Rechercher par nom, numero..."
+              placeholder="Rechercher par nom, numero, ville..."
               iconLeft={<Search className="h-4 w-4" />}
               value={filters.search || ''}
               onChange={(e) =>
-                setFilters((prev) => ({ ...prev, search: e.target.value, page: 1 }))
+                setFilters((prev) => ({ ...prev, search: e.target.value || undefined, page: 1 }))
               }
             />
             <Select
@@ -347,11 +334,10 @@ export default function SitesListPage() {
             <Input
               placeholder="Filtrer par pays..."
               iconLeft={<Search className="h-4 w-4" />}
-              value={countrySearch}
-              onChange={(e) => {
-                setCountrySearch(e.target.value);
-                setFilters((prev) => ({ ...prev, page: 1 }));
-              }}
+              value={filters.country || ''}
+              onChange={(e) =>
+                setFilters((prev) => ({ ...prev, country: e.target.value || undefined, page: 1 }))
+              }
             />
           </div>
         </div>
@@ -396,3 +382,4 @@ export default function SitesListPage() {
     </div>
   );
 }
+

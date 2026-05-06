@@ -182,6 +182,7 @@ export interface SiteFilters extends PaginationParams {
   study_id?: string;
   status?: SiteStatus;
   country?: string;
+  search?: string;
 }
 
 // --- Storage Location Types ---
@@ -203,7 +204,7 @@ export interface StorageLocation {
   access_restricted: boolean;
   capacity_cubic_meters?: number;
   current_usage_percent?: number;
-  status: 'ACTIVE' | 'INACTIVE';
+  status: 'ACTIVE' | 'INACTIVE' | 'MAINTENANCE' | 'CLOSED';
   children?: StorageLocation[];
   containers_count?: number;
   items_count?: number;

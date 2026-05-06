@@ -44,6 +44,7 @@ class SiteUpdate(BaseSchema):
     phone: Optional[str] = Field(default=None, max_length=20)
     email: Optional[EmailStr] = None
     timezone: Optional[str] = Field(default=None, max_length=50)
+    principal_investigator_id: Optional[UUID] = None
     status: Optional[str] = Field(default=None, pattern="^(ACTIVE|INACTIVE|CLOSED)$")
     closure_date: Optional[date] = None
     has_offline_capability: Optional[bool] = None

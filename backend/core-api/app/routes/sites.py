@@ -24,6 +24,7 @@ async def get_sites(
     study_id: Optional[UUID] = Query(None),
     status: Optional[str] = Query(None),
     country: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
@@ -35,6 +36,7 @@ async def get_sites(
         study_id=study_id,
         status=status,
         country=country,
+        search=search,
         page=page,
         page_size=page_size,
         user=current_user,
@@ -112,6 +114,20 @@ async def get_site_capacity(
     if capacity is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Site not found")
     return APIResponse(success=True, data=capacity)
+
+
+@router.get("/{site_id}/members", response_model=APIResponse[list])
+async def get_site_members(
+    site_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get active users assigned to a site (for PI selection)."""
+    service = SiteService(db)
+    members = await service.get_site_members(site_id, current_user)
+    if members is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Site not found")
+    return APIResponse(success=True, data=members)
 
 
 @router.put("/{site_id}", response_model=APIResponse[SiteResponse])

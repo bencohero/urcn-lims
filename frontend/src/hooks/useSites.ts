@@ -2,6 +2,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { sitesApi, type CreateSiteRequest, type UpdateSiteRequest } from '@/lib/api/sites';
 import type { SiteFilters } from '@/types';
 
+export function useSiteMembers(id: string) {
+  return useQuery({
+    queryKey: ['sites', id, 'members'],
+    queryFn: () => sitesApi.getMembers(id),
+    enabled: !!id,
+  });
+}
+
 export function useSites(filters?: SiteFilters) {
   return useQuery({
     queryKey: ['sites', filters],

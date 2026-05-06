@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useForm, Controller } from 'react-hook-form';
@@ -24,9 +24,8 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Spinner } from '@/components/ui/Spinner';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
-import { Select } from '@/components/ui/Select';
 import { useToast } from '@/components/ui/Toast';
-import { useSiteById, useSiteLocations, useSiteCapacity, useUpdateSite } from '@/hooks/useSites';
+import { useSiteById, useSiteLocations, useSiteCapacity, useUpdateSite, useSiteMembers } from '@/hooks/useSites';
 import type { StorageLocation } from '@/types';
 import type { UpdateSiteRequest } from '@/lib/api/sites';
 
@@ -53,6 +52,7 @@ const editSiteSchema = z.object({
   status: z.enum(['ACTIVE', 'INACTIVE', 'CLOSED']).optional(),
   has_offline_capability: z.boolean().optional(),
   timezone: z.string().optional().or(z.literal('')),
+  principal_investigator_id: z.string().uuid().optional().or(z.literal('')),
 });
 
 type EditSiteFormValues = z.infer<typeof editSiteSchema>;
@@ -126,11 +126,13 @@ function EditSiteForm({
   onSubmit,
   onCancel,
   loading,
+  userOptions,
 }: {
   defaultValues: EditSiteFormValues;
   onSubmit: (data: UpdateSiteRequest) => void;
   onCancel: () => void;
   loading: boolean;
+  userOptions: Array<{ value: string; label: string }>;
 }) {
   const {
     register,
@@ -155,6 +157,8 @@ function EditSiteForm({
     if (data.has_offline_capability !== undefined)
       payload.has_offline_capability = data.has_offline_capability;
     if (data.timezone !== undefined) payload.timezone = data.timezone;
+    if (data.principal_investigator_id !== undefined)
+      payload.principal_investigator_id = data.principal_investigator_id || null;
     onSubmit(payload);
   };
 
@@ -207,20 +211,41 @@ function EditSiteForm({
           error={errors.email?.message}
           {...register('email')}
         />
-        <Controller
-          control={control}
-          name="status"
-          render={({ field }) => (
-            <Select
-              label="Statut"
-              options={STATUS_OPTIONS}
-              value={field.value ?? ''}
-              onValueChange={field.onChange}
-              placeholder="Statut"
-              error={errors.status?.message}
-            />
+        <div>
+          <label htmlFor="edit_status" className="block text-sm font-medium text-gray-700 mb-1.5">
+            Statut
+          </label>
+          <select
+            id="edit_status"
+            {...register('status')}
+            className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {STATUS_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+          {errors.status?.message && (
+            <p className="mt-1 text-sm text-red-600">{errors.status.message}</p>
           )}
-        />
+        </div>
+        <div>
+          <label htmlFor="edit_pi" className="block text-sm font-medium text-gray-700 mb-1.5">
+            Investigateur principal
+          </label>
+          <select
+            id="edit_pi"
+            {...register('principal_investigator_id')}
+            className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <option value="">Aucun</option>
+            {userOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+          {errors.principal_investigator_id?.message && (
+            <p className="mt-1 text-sm text-red-600">{errors.principal_investigator_id.message}</p>
+          )}
+        </div>
         <div className="flex items-center gap-2 pt-6">
           <Controller
             control={control}
@@ -263,6 +288,13 @@ export default function SiteDetailPage() {
   const { data: locations, isLoading: locationsLoading } = useSiteLocations(id!);
   const { data: capacity, isLoading: capacityLoading } = useSiteCapacity(id!);
   const updateSite = useUpdateSite();
+
+  const { data: membersData } = useSiteMembers(id!);
+
+  const userOptions = useMemo(
+    () => (membersData ?? []).map((m) => ({ value: m.id, label: m.name })),
+    [membersData],
+  );
 
   const handleUpdate = (payload: UpdateSiteRequest) => {
     updateSite.mutate(
@@ -548,10 +580,12 @@ export default function SiteDetailPage() {
             status: site.status,
             has_offline_capability: site.has_offline_capability,
             timezone: site.timezone,
+            principal_investigator_id: site.principal_investigator?.id ?? '',
           }}
           onSubmit={handleUpdate}
           onCancel={() => setShowEditModal(false)}
           loading={updateSite.isPending}
+          userOptions={userOptions}
         />
       </Modal>
     </div>
