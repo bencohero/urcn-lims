@@ -88,7 +88,8 @@ class SiteService:
             .where(Site.id == site_id)
             .options(
                 selectinload(Site.study),
-                selectinload(Site.principal_investigator),
+                selectinload(Site.site_users).selectinload(SiteUser.user),
+                selectinload(Site.site_users).selectinload(SiteUser.role),
                 selectinload(Site.storage_locations),
             )
         )
@@ -106,6 +107,22 @@ class SiteService:
             )
             site.__dict__['total_items_stored'] = count_result.scalar() or 0
 
+
+                
+        principal_investigator = next(
+        (
+            su.user
+            for su in site.site_users
+            if su.role.code == "INVESTIGATOR"
+        ),
+            None,
+        )
+
+        site.__dict__["principal_investigator_name"] = (
+            principal_investigator.full_name
+            if principal_investigator
+            else None
+        )
         return site
 
     async def create_site(self, site_data: SiteCreate, user: User) -> Site:
