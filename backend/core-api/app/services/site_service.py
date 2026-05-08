@@ -101,12 +101,13 @@ class SiteService:
             if site.id not in checker.site_ids:
                 return None
 
-        if site:
-            count_result = await self.db.execute(
-                select(func.count(StoredItem.id)).where(StoredItem.site_id == site_id)
-            )
-            site.__dict__['total_items_stored'] = count_result.scalar() or 0
-
+        if site is None:
+            return None
+        
+        count_result = await self.db.execute(
+            select(func.count(StoredItem.id)).where(StoredItem.site_id == site_id)
+        )
+        site.__dict__['total_items_stored'] = count_result.scalar() or 0
 
                 
         principal_investigator = next(
@@ -118,8 +119,8 @@ class SiteService:
             None,
         )
 
-        site.__dict__["principal_investigator_name"] = (
-            principal_investigator.full_name
+        site.__dict__["principal_investigator"] = (
+            principal_investigator
             if principal_investigator
             else None
         )

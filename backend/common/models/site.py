@@ -102,15 +102,5 @@ class Site(BaseModel):
     def is_active(self) -> bool:
         return self.status == "ACTIVE"
 
-    """ @property
-    def principal_investigator_name(self) -> Optional[str]:
-        # find the principal investigator in site_users
-        if self.principal_investigator is not None:
-            return self.principal_investigator.full_name
-        for site_user in self.site_users:
-            if site_user.role == "PRINCIPAL_INVESTIGATOR":
-                return site_user.user.full_name
-        return None """
-
     def __repr__(self) -> str:
         return f"<Site(id={self.id}, site_number={self.site_number})>"

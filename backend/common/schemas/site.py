@@ -67,10 +67,6 @@ class SiteResponse(IDTimestampSchema, SiteBase):
     activation_date: Optional[date] = None
     closure_date: Optional[date] = None
     principal_investigator: Optional[PrincipalInvestigator] = None
-    principal_investigator_name: Optional[str] = Field(
-        default=None,
-        validation_alias=AliasChoices("principal_investigator_full_name", "principal_investigator_name"),
-    )
     storage_locations_count: int = 0
     total_items_stored: int = 0
     metadata: Optional[Dict[str, Any]] = Field(

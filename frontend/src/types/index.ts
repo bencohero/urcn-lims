@@ -169,6 +169,7 @@ export interface Site {
   activation_date?: string;
   storage_locations_count?: number;
   total_items_stored?: number;
+  principal_investigator_name?: string;
   principal_investigator?: {
     id?: string;
     name: string;
