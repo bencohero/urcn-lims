@@ -110,8 +110,8 @@ const columns: Column<Study>[] = [
     sortable: true,
     render: (study) => (
       <div>
-        <p className="text-sm text-gray-900">{formatDate(study.start_date)}</p>
-        <p className="text-xs text-gray-500">{formatDate(study.end_date)}</p>
+        <p className="text-sm text-gray-900">{study.start_date ? formatDate(study.start_date) : '-'}</p>
+        <p className="text-xs text-gray-500">{study.end_date ? formatDate(study.end_date) : '-'}</p>
       </div>
     ),
   },

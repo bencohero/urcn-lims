@@ -179,3 +179,33 @@ export function useExtendRequest() {
     },
   });
 }
+
+/**
+ * Cancels a pending access request.
+ */
+export function useCancelRequest() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => accessRequestsApi.cancel(id),
+    onSuccess: (_data, id) => {
+      queryClient.invalidateQueries({ queryKey: ['access-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['access-requests', id] });
+    },
+  });
+}
+
+/**
+ * Approves an extension request for a fulfilled access request.
+ */
+export function useApproveExtension() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => accessRequestsApi.approveExtension(id),
+    onSuccess: (_data, id) => {
+      queryClient.invalidateQueries({ queryKey: ['access-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['access-requests', id] });
+    },
+  });
+}

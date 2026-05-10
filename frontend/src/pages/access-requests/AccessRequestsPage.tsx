@@ -13,27 +13,28 @@ import { Badge } from '@/components/ui/Badge';
 import { useToast } from '@/components/ui/Toast';
 import { AccessRequestForm } from '@/components/features/access-requests/AccessRequestForm';
 import { useAccessRequests, useCreateAccessRequest } from '@/hooks/useAccessRequests';
+import { useAuthStore } from '@/store/authStore';
 import { formatDate, formatRelative } from '@/lib/utils/utils';
-import type { AccessRequest, AccessRequestFilters, AccessRequestStatus, Urgency } from '@/types';
+import type { AccessRequest, AccessRequestFilters, AccessRequestStatus, Urgency, RequestType } from '@/types';
 
 const URGENCY_VARIANTS: Record<Urgency, 'default' | 'info' | 'orange' | 'danger'> = {
   LOW: 'default',
-  MEDIUM: 'info',
+  NORMAL: 'info',
   HIGH: 'orange',
   CRITICAL: 'danger',
 };
 
 const URGENCY_LABELS: Record<Urgency, string> = {
   LOW: 'Basse',
-  MEDIUM: 'Moyenne',
+  NORMAL: 'Normale',
   HIGH: 'Haute',
   CRITICAL: 'Critique',
 };
 
-const REQUEST_TYPE_LABELS: Record<string, string> = {
+const REQUEST_TYPE_LABELS: Record<RequestType, string> = {
   CONSULTATION: 'Consultation',
+  COPY: 'Copie',
   LOAN: 'Pret',
-  TRANSFER: 'Transfert',
 };
 
 const columns: Column<AccessRequest>[] = [
@@ -60,23 +61,23 @@ const columns: Column<AccessRequest>[] = [
     header: 'Article',
     render: (ar) => (
       <div>
-        <p className="text-sm text-gray-900 truncate max-w-xs">{ar.item.description}</p>
-        <p className="text-xs text-gray-500">{ar.item.type}</p>
+        <p className="text-sm text-gray-900 truncate max-w-xs">{ar.item?.description ?? '-'}</p>
+        <p className="text-xs text-gray-500">{ar.item?.type}</p>
       </div>
     ),
   },
   {
     key: 'request_type',
     header: 'Type',
-    render: (ar) => REQUEST_TYPE_LABELS[ar.request_type] || ar.request_type,
+    render: (ar) => REQUEST_TYPE_LABELS[ar.request_type] ?? ar.request_type,
   },
   {
     key: 'urgency',
     header: 'Urgence',
     sortable: true,
     render: (ar) => (
-      <Badge variant={URGENCY_VARIANTS[ar.urgency]}>
-        {URGENCY_LABELS[ar.urgency]}
+      <Badge variant={URGENCY_VARIANTS[ar.urgency] ?? 'default'}>
+        {URGENCY_LABELS[ar.urgency] ?? ar.urgency}
       </Badge>
     ),
   },
@@ -112,11 +113,13 @@ const STATUS_TABS: { value: string; label: string; status?: AccessRequestStatus 
   { value: 'FULFILLED', label: 'Remises', status: 'FULFILLED' },
   { value: 'OVERDUE', label: 'En retard', status: 'OVERDUE' },
   { value: 'RETURNED', label: 'Retournees', status: 'RETURNED' },
+  { value: 'CANCELLED', label: 'Annulees', status: 'CANCELLED' },
 ];
 
 export default function AccessRequestsPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuthStore();
   const [activeTab, setActiveTab] = useState('all');
   const [filters, setFilters] = useState<AccessRequestFilters>({
     page: 1,
@@ -142,20 +145,25 @@ export default function AccessRequestsPage() {
 
   const handleCreate = (formData: {
     item_id: string;
-    item_type: string;
-    urgency: string;
+    request_type: RequestType;
+    urgency: Urgency;
     reason: string;
-    needed_by: string;
-    loan_duration_days: number;
+    needed_by?: string;
   }) => {
+    const primarySiteId = user?.sites?.[0]?.id;
+    if (!primarySiteId) {
+      toast({ variant: 'error', title: 'Aucun site assigne a votre compte' });
+      return;
+    }
+
     createRequest.mutate(
       {
         stored_item_id: formData.item_id,
-        requester_site_id: '',
-        request_type: 'LOAN',
+        requester_site_id: primarySiteId,
+        request_type: formData.request_type,
         purpose: formData.reason,
-        urgency: formData.urgency as Urgency,
-        required_by_date: formData.needed_by,
+        urgency: formData.urgency,
+        required_by_date: formData.needed_by || undefined,
       },
       {
         onSuccess: () => {
@@ -191,14 +199,23 @@ export default function AccessRequestsPage() {
             placeholder="Rechercher par numero, demandeur..."
             iconLeft={<Search className="h-4 w-4" />}
             value={filters.search || ''}
-            onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value, page: 1 }))}
+            onChange={(e) =>
+              setFilters((prev) => ({ ...prev, search: e.target.value || undefined, page: 1 }))
+            }
           />
         </div>
       </Card>
 
       {/* Tabs + Table */}
       <Card>
-        <Tabs tabs={tabs} value={activeTab} onValueChange={(val) => { setActiveTab(val); setFilters((prev) => ({ ...prev, page: 1 })); }}>
+        <Tabs
+          tabs={tabs}
+          value={activeTab}
+          onValueChange={(val) => {
+            setActiveTab(val);
+            setFilters((prev) => ({ ...prev, page: 1 }));
+          }}
+        >
           <TabContent value={activeTab} className="pt-0">
             <DataTable
               columns={columns}

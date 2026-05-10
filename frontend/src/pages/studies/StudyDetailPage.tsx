@@ -53,7 +53,7 @@ const editStudySchema = z.object({
   estimated_enrollment: z.coerce.number().int().positive().optional(),
   retention_period_years: z.coerce.number().int().positive().optional(),
   description: z.string().optional().or(z.literal('')),
-  status: z.enum(['ACTIVE', 'PAUSED', 'COMPLETED', 'TERMINATED']).optional(),
+  status: z.enum(['ACTIVE', 'PAUSED', 'COMPLETED', 'TERMINATED', 'CANCELLED']).optional(),
 });
 
 type EditStudyFormValues = z.infer<typeof editStudySchema>;
@@ -306,8 +306,8 @@ export default function StudyDetailPage() {
                 label="Retention"
                 value={`${study.retention_period_years} an${study.retention_period_years > 1 ? 's' : ''}`}
               />
-              <InfoItem label="Date de debut" value={formatDate(study.start_date)} />
-              <InfoItem label="Date de fin" value={formatDate(study.end_date)} />
+              <InfoItem label="Date de debut" value={study.start_date ? formatDate(study.start_date) : '-'} />
+              <InfoItem label="Date de fin" value={study.end_date ? formatDate(study.end_date) : '-'} />
               {study.description && (
                 <div className="col-span-2">
                   <InfoItem label="Description" value={study.description} />

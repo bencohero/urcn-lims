@@ -87,4 +87,18 @@ export const accessRequestsApi = {
     );
     return data.data;
   },
+
+  cancel: async (id: string) => {
+    const { data } = await apiClient.post<ApiResponse<AccessRequest>>(
+      `/access-requests/${id}/cancel`,
+    );
+    return data.data;
+  },
+
+  approveExtension: async (id: string) => {
+    const { data } = await apiClient.post<ApiResponse<AccessRequest>>(
+      `/access-requests/${id}/approve-extension`,
+    );
+    return data.data;
+  },
 };

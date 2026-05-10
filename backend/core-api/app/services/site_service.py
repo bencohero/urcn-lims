@@ -38,7 +38,8 @@ class SiteService:
         from sqlalchemy import or_
         query = select(Site).options(
             selectinload(Site.study),
-            selectinload(Site.principal_investigator),
+            selectinload(Site.site_users).selectinload(SiteUser.user),
+            selectinload(Site.site_users).selectinload(SiteUser.role),
         )
 
         filters = []
@@ -79,6 +80,31 @@ class SiteService:
         result = await self.db.execute(query)
         sites = result.scalars().all()
 
+        for site in sites:
+            count_result = await self.db.execute(
+                select(func.count(StoredItem.id)).where(StoredItem.site_id == site.id)
+            )
+            site.__dict__['total_items_stored'] = count_result.scalar() or 0
+
+            principal_investigator = next(
+                (
+                    su.user
+                    for su in site.site_users
+                    if (
+                        su.role.code == "INVESTIGATOR" 
+                        and 
+                        su.unassigned_at is None
+                    )
+                ),
+                None,
+            )
+
+            site.__dict__["principal_investigator"] = (
+                principal_investigator
+                if principal_investigator
+                else None
+            )
+
         return sites, total
 
     async def get_site_by_id(self, site_id: UUID, user: User) -> Optional[Site]:
@@ -114,7 +140,11 @@ class SiteService:
         (
             su.user
             for su in site.site_users
-            if su.role.code == "INVESTIGATOR"
+            if (
+                su.role.code == "INVESTIGATOR" 
+                and 
+                su.unassigned_at is None
+            )
         ),
             None,
         )

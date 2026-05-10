@@ -428,9 +428,9 @@ export interface ConsumableFilters extends PaginationParams {
 
 // --- Access Request Types ---
 
-export type AccessRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'FULFILLED' | 'RETURNED' | 'OVERDUE';
-export type RequestType = 'CONSULTATION' | 'LOAN' | 'TRANSFER';
-export type Urgency = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+export type AccessRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'FULFILLED' | 'RETURNED' | 'OVERDUE' | 'CANCELLED';
+export type RequestType = 'CONSULTATION' | 'COPY' | 'LOAN';
+export type Urgency = 'LOW' | 'NORMAL' | 'HIGH' | 'CRITICAL';
 
 export interface AccessRequestSummary {
   id: string;
@@ -473,6 +473,7 @@ export interface AccessRequest {
   actual_return_date?: string;
   was_late?: boolean;
   extension_requested?: boolean;
+  extension_approved?: boolean | null;
   extension_days?: number;
   created_at?: string;
   updated_at?: string;

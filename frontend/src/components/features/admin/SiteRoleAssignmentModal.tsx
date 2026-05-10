@@ -151,7 +151,7 @@ export function SiteRoleAssignmentModal({ user, onClose }: SiteRoleAssignmentMod
                       <p className="text-xs text-gray-500">{a.site_number}</p>
                     </div>
                     {a.is_primary && (
-                      <Star className="h-3.5 w-3.5 text-amber-400 fill-amber-400" title="Contact principal" />
+                      <Star className="h-3.5 w-3.5 text-amber-400 fill-amber-400" />
                     )}
                   </div>
                   <button

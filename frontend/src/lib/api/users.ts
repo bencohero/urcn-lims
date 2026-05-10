@@ -115,4 +115,12 @@ export const usersApi = {
   unassignSiteRole: async (id: string, payload: { site_id: string; role_id: string }) => {
     await apiClient.delete(`/users/${id}/site-roles`, { data: payload });
   },
+
+  changePassword: async (id: string, payload: { current_password: string; new_password: string; confirm_password: string }) => {
+    const { data } = await apiClient.post<ApiResponse<{ message: string }>>(
+      `/users/${id}/change-password`,
+      payload,
+    );
+    return data.data;
+  },
 };

@@ -50,7 +50,7 @@ function hasPermission(permissions: Record<string, Record<string, boolean>>, res
 }
 
 function PermissionMatrix({
-  role,
+  role: _role,
   editing,
   permissions,
   onToggle,

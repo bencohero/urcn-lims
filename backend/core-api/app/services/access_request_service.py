@@ -52,11 +52,13 @@ class AccessRequestService:
         requester_id: Optional[UUID] = None,
         stored_item_id: Optional[UUID] = None,
         urgency: Optional[str] = None,
+        search: Optional[str] = None,
         page: int = 1,
         page_size: int = 50,
         user: User = None,
     ) -> Tuple[List[AccessRequest], int]:
         """Get access requests with filters and pagination."""
+        from sqlalchemy import or_
         query = select(AccessRequest).options(
             selectinload(AccessRequest.stored_item),
             selectinload(AccessRequest.requester),
@@ -73,6 +75,13 @@ class AccessRequestService:
             filters.append(AccessRequest.stored_item_id == stored_item_id)
         if urgency:
             filters.append(AccessRequest.urgency == urgency)
+        if search:
+            filters.append(
+                or_(
+                    AccessRequest.request_number.ilike(f"%{search}%"),
+                    AccessRequest.purpose.ilike(f"%{search}%"),
+                )
+            )
 
         # RLS filter
         if user and not user.is_superuser:

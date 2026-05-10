@@ -349,46 +349,80 @@ class UserService:
                 detail="User not found",
             )
 
-        # Check for existing active assignment
+        # Check for existing active & inactive assignment
         query = select(SiteUser).where(
             and_(
                 SiteUser.user_id == user_id,
                 SiteUser.site_id == site_id,
                 SiteUser.role_id == role_id,
-                SiteUser.unassigned_at.is_(None),
+                #SiteUser.unassigned_at.is_(None),
             )
         )
         result = await self.db.execute(query)
         existing = result.scalar_one_or_none()
+
+        site_user: SiteUser = None
+        now = datetime.now(timezone.utc)
+
         if existing:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="User already has this role on this site",
+            # If there's an existing active assignment, prevent duplicate
+            if existing.unassigned_at is None:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="User already has this role on this site",
+                )
+            # If there's an existing inactive assignment, we can reactivate it
+            old_unassigned_at = existing.unassigned_at
+            old_assigned_at = existing.assigned_at
+
+            existing.unassigned_at = None
+            existing.assigned_at = now
+            existing.updated_by = current_user.id
+            existing.is_primary = is_primary
+            site_user = existing
+
+            await self.audit_service.log_action(
+                event_type="UPDATE",
+                table_name="site_users",
+                record_id=existing.id,
+                user_id=current_user.id,
+                old_values={
+                    "assigned_at": (
+                        old_assigned_at.isoformat()
+                        if old_assigned_at
+                        else None
+                    ),
+                },
+                new_values={
+                    "assigned_at": now.isoformat(),
+                    "unassigned_at": None,
+                },
+                action="User re-assigned to site with role",
             )
+        else:
+            site_user = SiteUser(
+                user_id=user_id,
+                site_id=site_id,
+                role_id=role_id,
+                is_primary=is_primary,
+                assigned_at=now,
+                created_by=current_user.id,
+            )
+            self.db.add(site_user)
 
-        site_user = SiteUser(
-            user_id=user_id,
-            site_id=site_id,
-            role_id=role_id,
-            is_primary=is_primary,
-            assigned_at=datetime.now(timezone.utc),
-            created_by=current_user.id,
-        )
-        self.db.add(site_user)
-
-        await self.audit_service.log_action(
-            event_type="CREATE",
-            table_name="site_users",
-            record_id=site_user.id,
-            user_id=current_user.id,
-            new_values={
-                "user_id": str(user_id),
-                "site_id": str(site_id),
-                "role_id": str(role_id),
-                "is_primary": is_primary,
-            },
-            action="User assigned to site with role",
-        )
+            await self.audit_service.log_action(
+                event_type="CREATE",
+                table_name="site_users",
+                record_id=site_user.id,
+                user_id=current_user.id,
+                new_values={
+                    "user_id": str(user_id),
+                    "site_id": str(site_id),
+                    "role_id": str(role_id),
+                    "is_primary": is_primary,
+                },
+                action="User assigned to site with role",
+            )
 
         await self.db.commit()
         await self.db.refresh(site_user)

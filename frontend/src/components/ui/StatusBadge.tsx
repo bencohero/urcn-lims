@@ -35,6 +35,7 @@ const STATUS_MAP: Record<string, { label: string; variant: BadgeVariant }> = {
   FULFILLED: { label: 'Remis', variant: 'purple' },
   RETURNED: { label: 'Retourne', variant: 'default' },
   OVERDUE: { label: 'En retard', variant: 'danger' },
+  CANCELLED: { label: 'Annulee', variant: 'default' },
 
   // Study
   PAUSED: { label: 'En pause', variant: 'warning' },
@@ -47,13 +48,13 @@ const STATUS_MAP: Record<string, { label: string; variant: BadgeVariant }> = {
 
   // Urgency
   LOW: { label: 'Basse', variant: 'default' },
+  NORMAL: { label: 'Normale', variant: 'info' },
   MEDIUM: { label: 'Moyenne', variant: 'info' },
   HIGH: { label: 'Haute', variant: 'orange' },
   CRITICAL: { label: 'Critique', variant: 'danger' },
 
   // Confidentiality
   // LOW already defined above
-  // MEDIUM already defined above
   // HIGH already defined above
 };
 
