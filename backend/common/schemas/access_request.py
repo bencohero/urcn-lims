@@ -73,7 +73,7 @@ class UserSummary(BaseSchema):
     """User summary for access request response."""
 
     id: UUID
-    name: str
+    name: str = Field(validation_alias=AliasChoices("name", "full_name"))
     email: str
 
 
