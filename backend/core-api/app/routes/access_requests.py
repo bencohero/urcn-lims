@@ -40,6 +40,7 @@ async def get_access_requests(
     current_user: User = Depends(get_current_user),
 ):
     """Get list of access requests with filters."""
+
     service = AccessRequestService(db)
     requests, total = await service.get_access_requests(
         status_filter=status_filter,

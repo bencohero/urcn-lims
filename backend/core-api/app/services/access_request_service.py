@@ -25,7 +25,6 @@ from .audit_service import AuditService
 
 settings = get_settings()
 
-
 class AccessRequestService:
     """Service for access request workflow operations."""
 
@@ -106,6 +105,9 @@ class AccessRequestService:
 
         result = await self.db.execute(query)
         requests = result.scalars().all()
+
+        # add logging for debugging
+        print(f"Request returned: {len(requests)}")
 
         return requests, total
 

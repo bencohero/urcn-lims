@@ -16,6 +16,7 @@ import { useAccessRequests, useCreateAccessRequest } from '@/hooks/useAccessRequ
 import { useAuthStore } from '@/store/authStore';
 import { formatDate, formatRelative } from '@/lib/utils/utils';
 import type { AccessRequest, AccessRequestFilters, AccessRequestStatus, Urgency, RequestType } from '@/types';
+import { useUserById } from '@/hooks/useUsers';
 
 const URGENCY_VARIANTS: Record<Urgency, 'default' | 'info' | 'orange' | 'danger'> = {
   LOW: 'default',
@@ -119,7 +120,8 @@ const STATUS_TABS: { value: string; label: string; status?: AccessRequestStatus 
 export default function AccessRequestsPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user } = useAuthStore();
+  const { user: userData } = useAuthStore();
+  const { data: user } = useUserById(userData?.id || '');
   const [activeTab, setActiveTab] = useState('all');
   const [filters, setFilters] = useState<AccessRequestFilters>({
     page: 1,

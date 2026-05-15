@@ -7,7 +7,7 @@ from uuid import UUID
 from fastapi import HTTPException, status
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import joinedload, selectinload
 
 
 from common.models import User, SiteUser, Role
@@ -73,6 +73,8 @@ class UserService:
 
     async def get_user_by_id(self, user_id: UUID) -> Optional[User]:
         """Get user by ID with site and role details."""
+        #site_users_loader = joinedload(User.site_users)
+
         query = (
             select(User)
             .where(User.id == user_id)
@@ -81,8 +83,26 @@ class UserService:
                 selectinload(User.site_users).selectinload(SiteUser.role),
             )
         )
+
         result = await self.db.execute(query)
-        return result.scalar_one_or_none()
+        user = result.scalar_one_or_none()
+
+        sites = [
+        su.site
+        for su in user.site_users
+        if su.site is not None
+        ]
+
+        roles = [
+            su.role
+            for su in user.site_users
+            if su.role is not None
+        ]
+        # Print l'objet user dans les logs pour vérifier les données chargées, notamment les rôles et sites associés
+
+        user.__dict__["sites"] = sites
+        user.__dict__["roles"] = roles
+        return user
 
     async def get_user_by_username(self, username: str) -> Optional[User]:
         """Get user by username."""
