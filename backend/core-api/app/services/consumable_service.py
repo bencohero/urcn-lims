@@ -8,7 +8,7 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from common.models import Consumable, StoredItem, User
+from common.models import Consumable, StoredItem, User, Container
 from common.schemas.consumable import ConsumableCreate, ConsumableUpdate
 from common.auth.permissions import PermissionChecker
 
@@ -39,7 +39,7 @@ class ConsumableService:
             .options(
                 selectinload(Consumable.study),
                 selectinload(Consumable.site),
-                selectinload(Consumable.container),
+                selectinload(Consumable.container).selectinload(Container.location),
             )
         )
 
@@ -86,7 +86,7 @@ class ConsumableService:
             .options(
                 selectinload(Consumable.study),
                 selectinload(Consumable.site),
-                selectinload(Consumable.container),
+                selectinload(Consumable.container).selectinload(Container.location),
             )
         )
         result = await self.db.execute(query)
@@ -145,7 +145,7 @@ class ConsumableService:
             .options(
                 selectinload(Consumable.study),
                 selectinload(Consumable.site),
-                selectinload(Consumable.container),
+                selectinload(Consumable.container).selectinload(Container.location),
             )
         )
         return result.scalar_one()

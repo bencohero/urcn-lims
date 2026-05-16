@@ -254,8 +254,8 @@ export interface Document {
   signed_date?: string;
   confidentiality_level: ConfidentialityLevel;
   status: DocumentStatus;
-  container?: { name: string; code: string };
-  location?: { name: string; code: string };
+  container?: { id: string; name: string; code: string };
+  location?: { id: string; name: string; code: string };
   rfid_tag?: { epc: string };
   internal_code?: string;
   description?: string;
@@ -319,6 +319,7 @@ export type EquipmentStatus = 'IN_STORAGE' | 'CHECKED_OUT' | 'IN_TRANSIT';
 
 export interface Equipment {
   id: string;
+  container_id?: string;
   study?: { protocol_number: string; title: string };
   site?: { site_number: string; name: string };
   equipment_type: EquipmentType;
@@ -330,8 +331,8 @@ export interface Equipment {
   next_calibration_date?: string;
   operational_status: OperationalStatus;
   status: EquipmentStatus;
-  container?: { name: string; code: string };
-  location?: { name: string; code: string };
+  container?: { id: string; name: string; code: string };
+  location?: { id: string; name: string; code: string };
   rfid_tag?: { epc: string };
   internal_code?: string;
   description?: string;
@@ -377,6 +378,7 @@ export type ConsumableUnit = 'VIAL' | 'PIECE' | 'BOX' | 'PACK' | 'BOTTLE' | 'KIT
 
 export interface Consumable {
   id: string;
+  container_id?: string;
   study?: { protocol_number: string; title: string };
   site?: { site_number: string; name: string };
   consumable_type: ConsumableType;
@@ -390,8 +392,8 @@ export interface Consumable {
   quantity: number;
   unit: ConsumableUnit;
   status: 'IN_STORAGE' | 'IN_USE' | 'EXPIRED' | 'DISPOSED';
-  container?: { name: string; code: string };
-  location?: { name: string; code: string };
+  container?: { id: string; name: string; code: string };
+  location?: { id: string; name: string; code: string };
   internal_code?: string;
   description?: string;
   storage_date: string;

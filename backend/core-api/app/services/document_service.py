@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 
-from common.models import Document, StoredItem, User, Container  # StoredItem used in query filters
+from common.models import Document, StoredItem, User, Container, StorageLocation
 from common.schemas.document import DocumentCreate, DocumentUpdate
 from common.auth.permissions import PermissionChecker
 
@@ -43,7 +43,7 @@ class DocumentService:
             .options(
                 selectinload(Document.study),
                 selectinload(Document.site),
-                selectinload(Document.container),
+                selectinload(Document.container).selectinload(Container.location),
             )
         )
 
@@ -171,7 +171,7 @@ class DocumentService:
             .options(
                 selectinload(Document.study),
                 selectinload(Document.site),
-                selectinload(Document.container),
+                selectinload(Document.container).selectinload(Container.location),
             )
         )
         return result.scalar_one()
@@ -216,7 +216,7 @@ class DocumentService:
             .options(
                 selectinload(Document.study),
                 selectinload(Document.site),
-                selectinload(Document.container),
+                selectinload(Document.container).selectinload(Container.location),
             )
         )
         return result.scalar_one()

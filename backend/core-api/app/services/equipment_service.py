@@ -8,7 +8,7 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from common.models import Equipment, StoredItem, User
+from common.models import Equipment, StoredItem, User, Container
 from common.schemas.equipment import EquipmentCreate, EquipmentUpdate
 from common.auth.permissions import PermissionChecker
 
@@ -39,7 +39,7 @@ class EquipmentService:
             .options(
                 selectinload(Equipment.study),
                 selectinload(Equipment.site),
-                selectinload(Equipment.container),
+                selectinload(Equipment.container).selectinload(Container.location),
             )
         )
 
@@ -86,7 +86,7 @@ class EquipmentService:
             .options(
                 selectinload(Equipment.study),
                 selectinload(Equipment.site),
-                selectinload(Equipment.container),
+                selectinload(Equipment.container).selectinload(Container.location),
             )
         )
         result = await self.db.execute(query)
@@ -148,7 +148,7 @@ class EquipmentService:
             .options(
                 selectinload(Equipment.study),
                 selectinload(Equipment.site),
-                selectinload(Equipment.container),
+                selectinload(Equipment.container).selectinload(Container.location),
             )
         )
         return result.scalar_one()

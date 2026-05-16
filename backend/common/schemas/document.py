@@ -85,6 +85,7 @@ class SiteSummary(BaseSchema):
 class ContainerSummary(BaseSchema):
     """Container summary for responses."""
 
+    id: UUID
     name: str
     code: Optional[str] = None
 
@@ -92,6 +93,7 @@ class ContainerSummary(BaseSchema):
 class LocationSummary(BaseSchema):
     """Location summary for responses."""
 
+    id: UUID
     name: str
     code: Optional[str] = None
 

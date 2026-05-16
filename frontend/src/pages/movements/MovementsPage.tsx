@@ -197,10 +197,39 @@ function CreateMovementModal({
   });
 
   const movementType = watch('movement_type');
+  const fromContainerId = watch('from_container_id');
+  const fromLocationId = watch('from_location_id');
 
   const handleCategoryChange = (cat: string) => {
     setItemCategory(cat as ItemCategory | '');
     setValue('stored_item_id', '', { shouldValidate: false });
+    setValue('from_container_id', '', { shouldValidate: false });
+    setValue('from_location_id', '', { shouldValidate: false });
+  };
+
+  const handleItemChange = (itemId: string, onChange: (v: string) => void) => {
+    onChange(itemId);
+    if (!itemId) return;
+
+    let containerId: string | undefined;
+    let locationId: string | undefined;
+
+    if (itemCategory === 'DOCUMENT') {
+      const item = docsData?.items?.find((d) => d.id === itemId);
+      containerId = item?.container_id || item?.container?.id;
+      locationId = item?.location?.id;
+    } else if (itemCategory === 'EQUIPMENT') {
+      const item = eqData?.items?.find((e) => e.id === itemId);
+      containerId = item?.container_id || item?.container?.id;
+      locationId = item?.location?.id;
+    } else if (itemCategory === 'CONSUMABLE') {
+      const item = consData?.items?.find((c) => c.id === itemId);
+      containerId = item?.container_id || item?.container?.id;
+      locationId = item?.location?.id;
+    }
+
+    setValue('from_container_id', containerId ?? '', { shouldValidate: false });
+    setValue('from_location_id', locationId ?? '', { shouldValidate: false });
   };
 
   const onSubmit = (values: CreateMovementFormValues) => {
@@ -263,11 +292,11 @@ function CreateMovementModal({
               required
               options={itemOptions}
               value={field.value ?? ''}
-              onValueChange={field.onChange}
+              onValueChange={(v) => handleItemChange(v, field.onChange)}
               error={errors.stored_item_id?.message}
               placeholder={
                 !itemCategory
-                  ? 'Sélectionner une catégorie d\'abord'
+                  ? "Sélectionner une catégorie d'abord"
                   : itemsLoading
                   ? 'Chargement...'
                   : itemOptions.length === 0
@@ -329,7 +358,7 @@ function CreateMovementModal({
             name="from_container_id"
             render={({ field }) => (
               <Select
-                label="Conteneur source"
+                label={fromContainerId ? 'Conteneur source (auto)' : 'Conteneur source'}
                 options={containerOptions}
                 value={field.value ?? ''}
                 onValueChange={field.onChange}
@@ -359,7 +388,7 @@ function CreateMovementModal({
             name="from_location_id"
             render={({ field }) => (
               <Select
-                label="Emplacement source"
+                label={fromLocationId ? 'Emplacement source (auto)' : 'Emplacement source'}
                 options={locationOptions}
                 value={field.value ?? ''}
                 onValueChange={field.onChange}
