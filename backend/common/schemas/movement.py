@@ -25,6 +25,7 @@ class MovementCreate(MovementBase):
     """Schema for creating a movement."""
 
     stored_item_id: UUID
+    performed_by_id: Optional[UUID] = None
     from_container_id: Optional[UUID] = None
     to_container_id: Optional[UUID] = None
     from_location_id: Optional[UUID] = None
@@ -36,7 +37,7 @@ class UserSummary(BaseSchema):
     """User summary for movement response."""
 
     id: UUID
-    name: str
+    name: str = Field(validation_alias=AliasChoices("name", "full_name"))
 
 
 class ContainerSummary(BaseSchema):
@@ -61,8 +62,13 @@ class MovementResponse(IDTimestampSchema, MovementBase):
     stored_item_id: UUID
     movement_date: datetime
     actual_return_date: Optional[date] = None
-    performed_by: UserSummary
-    approved_by: Optional[UserSummary] = None
+    performed_by: UserSummary = Field(
+        validation_alias=AliasChoices("performer", "performed_by")
+    )
+    approved_by: Optional[UserSummary] = Field(
+        default=None,
+        validation_alias=AliasChoices("approver", "approved_by"),
+    )
     from_container: Optional[ContainerSummary] = None
     to_container: Optional[ContainerSummary] = None
     from_location: Optional[LocationSummary] = None

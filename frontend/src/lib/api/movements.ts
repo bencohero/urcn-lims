@@ -2,30 +2,34 @@ import { apiClient } from './client';
 import type { ApiResponse, PaginatedResponse, PaginationParams } from '@/types';
 
 export type BackendMovementType =
-  | 'INTERNAL_TRANSFER'
-  | 'OUTGOING'
-  | 'INCOMING'
-  | 'ADJUSTMENT';
+  | 'IN'
+  | 'OUT'
+  | 'TRANSFER'
+  | 'RETURN'
+  | 'ARCHIVE'
+  | 'DESTROY';
 
 export interface FullMovement {
   id: string;
   stored_item_id: string;
   movement_type: BackendMovementType;
-  from_container?: { id: string; name: string; code: string };
-  to_container?: { id: string; name: string; code: string };
-  from_location?: { id: string; name: string; code: string };
-  to_location?: { id: string; name: string; code: string };
-  performed_by?: { id: string; username: string; full_name: string };
-  approver?: { id: string; username: string; full_name: string };
+  quantity: number;
+  from_container?: { id: string; name: string; code?: string };
+  to_container?: { id: string; name: string; code?: string };
+  from_location?: { id: string; name: string; code?: string };
+  to_location?: { id: string; name: string; code?: string };
+  performed_by?: { id: string; name: string };
+  approved_by?: { id: string; name: string };
   notes?: string;
+  reason?: string;
   expected_return_date?: string;
-  return_date?: string;
+  actual_return_date?: string;
+  is_return_overdue?: boolean;
   stored_item?: {
     id: string;
-    description: string;
+    description?: string;
     item_type: string;
     status: string;
-    internal_code?: string;
   };
   movement_date: string;
   created_at: string;
@@ -34,13 +38,14 @@ export interface FullMovement {
 export interface CreateMovementRequest {
   stored_item_id: string;
   movement_type: BackendMovementType;
+  performed_by_id?: string;
   from_container_id?: string;
   to_container_id?: string;
   from_location_id?: string;
   to_location_id?: string;
-  performed_by: string;
-  approver_id?: string;
   notes?: string;
+  reason?: string;
+  quantity?: number;
   expected_return_date?: string;
 }
 

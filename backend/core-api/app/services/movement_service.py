@@ -25,6 +25,23 @@ class MovementService:
         self.db = db
         self.audit_service = AuditService(db)
 
+    async def _load_with_relations(self, movement_id: UUID) -> Optional[Movement]:
+        """Reload a movement with all relationships eagerly loaded."""
+        result = await self.db.execute(
+            select(Movement)
+            .where(Movement.id == movement_id)
+            .options(
+                selectinload(Movement.stored_item),
+                selectinload(Movement.performer),
+                selectinload(Movement.approver),
+                selectinload(Movement.from_container),
+                selectinload(Movement.to_container),
+                selectinload(Movement.from_location),
+                selectinload(Movement.to_location),
+            )
+        )
+        return result.scalar_one_or_none()
+
     async def get_movements(
         self,
         stored_item_id: Optional[UUID] = None,
@@ -143,7 +160,7 @@ class MovementService:
             reason=movement_data.reason,
             expected_return_date=movement_data.expected_return_date,
             notes=movement_data.notes,
-            performed_by=user.id,
+            performed_by=movement_data.performed_by_id or user.id,
             movement_date=datetime.utcnow(),
         )
         self.db.add(movement)
@@ -197,8 +214,7 @@ class MovementService:
         )
 
         await self.db.commit()
-        await self.db.refresh(movement)
-        return movement
+        return await self._load_with_relations(movement.id)
 
     async def get_overdue_movements(
         self, user: User
@@ -256,5 +272,4 @@ class MovementService:
         )
 
         await self.db.commit()
-        await self.db.refresh(movement)
-        return movement
+        return await self._load_with_relations(movement.id)

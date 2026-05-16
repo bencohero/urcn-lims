@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -20,6 +20,10 @@ import {
 } from '@/hooks/useMovements';
 import { useUsers } from '@/hooks/useUsers';
 import { useContainers, useStorageLocations } from '@/hooks/useStorage';
+import { useQuery } from '@tanstack/react-query';
+import { documentsApi } from '@/lib/api/documents';
+import { equipmentApi } from '@/lib/api/equipment';
+import { consumablesApi } from '@/lib/api/consumables';
 import { formatDate, formatDateTime } from '@/lib/utils/utils';
 import type {
   BackendMovementType,
@@ -32,70 +36,70 @@ import type {
 
 const MOVEMENT_TYPE_OPTIONS_ALL = [
   { value: '', label: 'Tous les types' },
-  { value: 'INTERNAL_TRANSFER', label: 'Transfert interne' },
-  { value: 'OUTGOING', label: 'Sortie' },
-  { value: 'INCOMING', label: 'Entree' },
-  { value: 'ADJUSTMENT', label: 'Ajustement' },
+  { value: 'IN', label: 'Entrée' },
+  { value: 'OUT', label: 'Sortie' },
+  { value: 'TRANSFER', label: 'Transfert' },
+  { value: 'RETURN', label: 'Retour' },
+  { value: 'ARCHIVE', label: 'Archivage' },
+  { value: 'DESTROY', label: 'Destruction' },
 ];
 
 const MOVEMENT_TYPE_OPTIONS_CREATE = [
-  { value: 'INTERNAL_TRANSFER', label: 'Transfert interne' },
-  { value: 'OUTGOING', label: 'Sortie' },
-  { value: 'INCOMING', label: 'Entree' },
-  { value: 'ADJUSTMENT', label: 'Ajustement' },
+  { value: 'IN', label: 'Entrée' },
+  { value: 'OUT', label: 'Sortie' },
+  { value: 'TRANSFER', label: 'Transfert interne' },
+  { value: 'RETURN', label: 'Retour' },
+  { value: 'ARCHIVE', label: 'Archivage' },
+  { value: 'DESTROY', label: 'Destruction' },
 ];
 
-type MovementBadgeVariant = 'danger' | 'success' | 'info' | 'warning';
+type MovementBadgeVariant = 'danger' | 'success' | 'info' | 'warning' | 'default' | 'orange';
 
 const MOVEMENT_TYPE_VARIANTS: Record<BackendMovementType, MovementBadgeVariant> = {
-  OUTGOING: 'danger',
-  INCOMING: 'success',
-  INTERNAL_TRANSFER: 'info',
-  ADJUSTMENT: 'warning',
+  IN: 'success',
+  OUT: 'danger',
+  TRANSFER: 'info',
+  RETURN: 'warning',
+  ARCHIVE: 'default',
+  DESTROY: 'orange',
 };
 
 const MOVEMENT_TYPE_LABELS: Record<BackendMovementType, string> = {
-  OUTGOING: 'Sortie',
-  INCOMING: 'Entree',
-  INTERNAL_TRANSFER: 'Transfert interne',
-  ADJUSTMENT: 'Ajustement',
+  IN: 'Entrée',
+  OUT: 'Sortie',
+  TRANSFER: 'Transfert',
+  RETURN: 'Retour',
+  ARCHIVE: 'Archivage',
+  DESTROY: 'Destruction',
 };
+
+type ItemCategory = 'DOCUMENT' | 'EQUIPMENT' | 'CONSUMABLE';
+
+const ITEM_CATEGORY_OPTIONS = [
+  { value: 'DOCUMENT', label: 'Document' },
+  { value: 'EQUIPMENT', label: 'Équipement' },
+  { value: 'CONSUMABLE', label: 'Consommable' },
+];
 
 // ─── Zod Schema ───────────────────────────────────────────────────────────────
 
 const createMovementSchema = z.object({
-  stored_item_id: z.string().uuid('UUID article invalide'),
-  movement_type: z.enum(['INTERNAL_TRANSFER', 'OUTGOING', 'INCOMING', 'ADJUSTMENT'], {
+  stored_item_id: z.string().uuid('Article requis'),
+  movement_type: z.enum(['IN', 'OUT', 'TRANSFER', 'RETURN', 'ARCHIVE', 'DESTROY'], {
     required_error: 'Type requis',
   }),
-  performed_by: z.string().uuid('UUID utilisateur invalide'),
-  to_container_id: z
-    .string()
-    .uuid('UUID invalide')
-    .optional()
-    .or(z.literal('').transform(() => undefined)),
-  to_location_id: z
-    .string()
-    .uuid('UUID invalide')
-    .optional()
-    .or(z.literal('').transform(() => undefined)),
-  from_container_id: z
-    .string()
-    .uuid('UUID invalide')
-    .optional()
-    .or(z.literal('').transform(() => undefined)),
+  performed_by_id: z.string().uuid('Utilisateur invalide').optional().or(z.literal('').transform(() => undefined)),
+  to_container_id: z.string().uuid('UUID invalide').optional().or(z.literal('').transform(() => undefined)),
+  to_location_id: z.string().uuid('UUID invalide').optional().or(z.literal('').transform(() => undefined)),
+  from_container_id: z.string().uuid('UUID invalide').optional().or(z.literal('').transform(() => undefined)),
+  from_location_id: z.string().uuid('UUID invalide').optional().or(z.literal('').transform(() => undefined)),
+  reason: z.string().max(255).optional(),
   notes: z.string().optional(),
+  quantity: z.coerce.number().int().min(1).default(1),
   expected_return_date: z.string().optional(),
 });
 
 type CreateMovementFormValues = z.infer<typeof createMovementSchema>;
-
-// ─── Helper ───────────────────────────────────────────────────────────────────
-
-function isOverdue(date?: string): boolean {
-  if (!date) return false;
-  return new Date(date) < new Date();
-}
 
 // ─── Create Modal ─────────────────────────────────────────────────────────────
 
@@ -108,14 +112,62 @@ function CreateMovementModal({
 }) {
   const { toast } = useToast();
   const createMovement = useCreateMovement();
+  const [itemCategory, setItemCategory] = useState<ItemCategory | ''>('');
+
   const { data: usersData } = useUsers({ page_size: 100 });
   const { data: containersData } = useContainers({ page_size: 100 });
   const { data: locationsData } = useStorageLocations({ page_size: 100 });
 
-  const userOptions = (usersData?.items ?? []).map((u) => ({
-    value: u.id,
-    label: `${u.first_name} ${u.last_name} (${u.username})`,
-  }));
+  const { data: docsData, isLoading: docsLoading } = useQuery({
+    queryKey: ['documents', { page_size: 100 }],
+    queryFn: () => documentsApi.getAll({ page_size: 100 }),
+    enabled: itemCategory === 'DOCUMENT',
+    staleTime: 60_000,
+  });
+  const { data: eqData, isLoading: eqLoading } = useQuery({
+    queryKey: ['equipment', { page_size: 100 }],
+    queryFn: () => equipmentApi.getAll({ page_size: 100 }),
+    enabled: itemCategory === 'EQUIPMENT',
+    staleTime: 60_000,
+  });
+  const { data: consData, isLoading: consLoading } = useQuery({
+    queryKey: ['consumables', { page_size: 100 }],
+    queryFn: () => consumablesApi.getAll({ page_size: 100 }),
+    enabled: itemCategory === 'CONSUMABLE',
+    staleTime: 60_000,
+  });
+
+  const itemsLoading = docsLoading || eqLoading || consLoading;
+
+  const itemOptions = useMemo(() => {
+    if (itemCategory === 'DOCUMENT' && docsData?.items) {
+      return docsData.items.map((d) => ({
+        value: d.id,
+        label: `${d.document_type} — ${d.subject_id ?? '?'} / ${d.form_name ?? '?'} (v${d.version})`,
+      }));
+    }
+    if (itemCategory === 'EQUIPMENT' && eqData?.items) {
+      return eqData.items.map((e) => ({
+        value: e.id,
+        label: `${e.equipment_type} — ${e.manufacturer} ${e.model} (${e.serial_number})`,
+      }));
+    }
+    if (itemCategory === 'CONSUMABLE' && consData?.items) {
+      return consData.items.map((c) => ({
+        value: c.id,
+        label: `${c.consumable_type} — ${c.manufacturer} / Lot: ${c.lot_number}`,
+      }));
+    }
+    return [];
+  }, [itemCategory, docsData, eqData, consData]);
+
+  const userOptions = [
+    { value: '', label: '— Utilisateur courant —' },
+    ...(usersData?.items ?? []).map((u) => ({
+      value: u.id,
+      label: `${u.first_name} ${u.last_name} (${u.username})`,
+    })),
+  ];
   const containerOptions = [
     { value: '', label: '— Aucun —' },
     ...(containersData?.items ?? []).map((c) => ({
@@ -137,32 +189,43 @@ function CreateMovementModal({
     control,
     watch,
     reset,
+    setValue,
     formState: { errors },
   } = useForm<CreateMovementFormValues>({
     resolver: zodResolver(createMovementSchema),
+    defaultValues: { quantity: 1 },
   });
 
   const movementType = watch('movement_type');
+
+  const handleCategoryChange = (cat: string) => {
+    setItemCategory(cat as ItemCategory | '');
+    setValue('stored_item_id', '', { shouldValidate: false });
+  };
 
   const onSubmit = (values: CreateMovementFormValues) => {
     const payload: CreateMovementRequest = {
       stored_item_id: values.stored_item_id,
       movement_type: values.movement_type,
-      performed_by: values.performed_by,
+      performed_by_id: values.performed_by_id || undefined,
       to_container_id: values.to_container_id || undefined,
       to_location_id: values.to_location_id || undefined,
       from_container_id: values.from_container_id || undefined,
+      from_location_id: values.from_location_id || undefined,
+      reason: values.reason || undefined,
       notes: values.notes || undefined,
+      quantity: values.quantity,
       expected_return_date:
-        values.movement_type === 'OUTGOING' && values.expected_return_date
+        values.movement_type === 'OUT' && values.expected_return_date
           ? values.expected_return_date
           : undefined,
     };
 
     createMovement.mutate(payload, {
       onSuccess: () => {
-        toast({ variant: 'success', title: 'Mouvement enregistre avec succes' });
+        toast({ variant: 'success', title: 'Mouvement enregistré avec succès' });
         reset();
+        setItemCategory('');
         onOpenChange(false);
       },
       onError: () =>
@@ -174,21 +237,49 @@ function CreateMovementModal({
     <Modal
       open={open}
       onOpenChange={(v) => {
-        if (!v) reset();
+        if (!v) { reset(); setItemCategory(''); }
         onOpenChange(v);
       }}
       title="Enregistrer un mouvement"
-      description="Enregistrer un deplacement physique d'un article"
+      description="Enregistrer un déplacement physique d'un article"
       size="lg"
     >
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <Input
-          label="ID Article (UUID)"
+        {/* Item picker */}
+        <Select
+          label="Catégorie d'article"
           required
-          placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-          error={errors.stored_item_id?.message}
-          {...register('stored_item_id')}
+          options={ITEM_CATEGORY_OPTIONS}
+          value={itemCategory}
+          onValueChange={handleCategoryChange}
+          placeholder="Sélectionner une catégorie"
         />
+        <Controller
+          control={control}
+          name="stored_item_id"
+          render={({ field }) => (
+            <Select
+              label="Article"
+              required
+              options={itemOptions}
+              value={field.value ?? ''}
+              onValueChange={field.onChange}
+              error={errors.stored_item_id?.message}
+              placeholder={
+                !itemCategory
+                  ? 'Sélectionner une catégorie d\'abord'
+                  : itemsLoading
+                  ? 'Chargement...'
+                  : itemOptions.length === 0
+                  ? 'Aucun article disponible'
+                  : 'Sélectionner un article'
+              }
+              disabled={!itemCategory || itemsLoading || itemOptions.length === 0}
+            />
+          )}
+        />
+
+        {/* Movement type */}
         <Controller
           control={control}
           name="movement_type"
@@ -200,37 +291,49 @@ function CreateMovementModal({
               value={field.value ?? ''}
               onValueChange={field.onChange}
               error={errors.movement_type?.message}
-              placeholder="Selectionner un type"
+              placeholder="Sélectionner un type"
             />
           )}
         />
+
+        {/* Quantity */}
+        <Input
+          label="Quantité"
+          type="number"
+          min={1}
+          defaultValue={1}
+          error={errors.quantity?.message}
+          {...register('quantity')}
+        />
+
+        {/* Performer (optional, defaults to current user) */}
         <Controller
           control={control}
-          name="performed_by"
+          name="performed_by_id"
           render={({ field }) => (
             <Select
-              label="Effectue par"
-              required
+              label="Effectué par (optionnel)"
               options={userOptions}
               value={field.value ?? ''}
               onValueChange={field.onChange}
-              error={errors.performed_by?.message}
-              placeholder="Selectionner un utilisateur"
+              error={errors.performed_by_id?.message}
+              placeholder="— Utilisateur courant —"
             />
           )}
         />
+
+        {/* From / To containers */}
         <div className="grid grid-cols-2 gap-4">
           <Controller
             control={control}
             name="from_container_id"
             render={({ field }) => (
               <Select
-                label="Conteneur source (optionnel)"
+                label="Conteneur source"
                 options={containerOptions}
                 value={field.value ?? ''}
                 onValueChange={field.onChange}
                 error={errors.from_container_id?.message}
-                placeholder="— Aucun —"
               />
             )}
           />
@@ -239,53 +342,78 @@ function CreateMovementModal({
             name="to_container_id"
             render={({ field }) => (
               <Select
-                label="Conteneur destination (optionnel)"
+                label="Conteneur destination"
                 options={containerOptions}
                 value={field.value ?? ''}
                 onValueChange={field.onChange}
                 error={errors.to_container_id?.message}
-                placeholder="— Aucun —"
               />
             )}
           />
         </div>
-        <Controller
-          control={control}
-          name="to_location_id"
-          render={({ field }) => (
-            <Select
-              label="Emplacement destination (optionnel)"
-              options={locationOptions}
-              value={field.value ?? ''}
-              onValueChange={field.onChange}
-              error={errors.to_location_id?.message}
-              placeholder="— Aucun —"
-            />
-          )}
-        />
-        {movementType === 'OUTGOING' && (
+
+        {/* From / To locations */}
+        <div className="grid grid-cols-2 gap-4">
+          <Controller
+            control={control}
+            name="from_location_id"
+            render={({ field }) => (
+              <Select
+                label="Emplacement source"
+                options={locationOptions}
+                value={field.value ?? ''}
+                onValueChange={field.onChange}
+                error={errors.from_location_id?.message}
+              />
+            )}
+          />
+          <Controller
+            control={control}
+            name="to_location_id"
+            render={({ field }) => (
+              <Select
+                label="Emplacement destination"
+                options={locationOptions}
+                value={field.value ?? ''}
+                onValueChange={field.onChange}
+                error={errors.to_location_id?.message}
+              />
+            )}
+          />
+        </div>
+
+        {/* Expected return date — only for OUT */}
+        {movementType === 'OUT' && (
           <Input
-            label="Date de retour prevue"
+            label="Date de retour prévue"
             type="date"
             {...register('expected_return_date')}
           />
         )}
+
+        {/* Reason */}
+        <Input
+          label="Motif (optionnel)"
+          placeholder="Raison du mouvement..."
+          error={errors.reason?.message}
+          {...register('reason')}
+        />
+
+        {/* Notes */}
         <div className="space-y-1.5">
           <label className="text-sm font-medium text-gray-700">Notes (optionnel)</label>
           <textarea
             className="flex w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 hover:border-gray-400 transition-colors min-h-20 resize-y"
-            placeholder="Informations complementaires..."
+            placeholder="Informations complémentaires..."
             {...register('notes')}
           />
         </div>
+
         <div className="flex justify-end gap-3 pt-2">
           <Button
             type="button"
             variant="ghost"
-            onClick={() => {
-              reset();
-              onOpenChange(false);
-            }}
+            onClick={() => { reset(); setItemCategory(''); onOpenChange(false); }}
           >
             Annuler
           </Button>
@@ -311,7 +439,7 @@ export default function MovementsPage() {
 
   const handleRecordReturn = (id: string) => {
     recordReturn.mutate(id, {
-      onSuccess: () => toast({ variant: 'success', title: 'Retour enregistre avec succes' }),
+      onSuccess: () => toast({ variant: 'success', title: 'Retour enregistré avec succès' }),
       onError: () => toast({ variant: 'error', title: "Erreur lors de l'enregistrement du retour" }),
     });
   };
@@ -332,7 +460,7 @@ export default function MovementsPage() {
       render: (m) =>
         m.stored_item ? (
           <div>
-            <p className="text-sm text-gray-900 font-medium">{m.stored_item.description}</p>
+            <p className="text-sm text-gray-900 font-medium">{m.stored_item.description ?? '—'}</p>
             <p className="text-xs text-gray-500">{m.stored_item.item_type}</p>
           </div>
         ) : (
@@ -365,10 +493,10 @@ export default function MovementsPage() {
     },
     {
       key: 'performed_by',
-      header: 'Effectue par',
+      header: 'Effectué par',
       render: (m) =>
         m.performed_by ? (
-          <span className="text-sm text-gray-700">{m.performed_by.full_name}</span>
+          <span className="text-sm text-gray-700">{m.performed_by.name}</span>
         ) : (
           <span className="text-gray-400">-</span>
         ),
@@ -381,10 +509,10 @@ export default function MovementsPage() {
     },
     {
       key: 'expected_return_date',
-      header: 'Retour prevu',
+      header: 'Retour prévu',
       render: (m) => {
         if (!m.expected_return_date) return <span className="text-gray-400">-</span>;
-        const overdue = isOverdue(m.expected_return_date) && !m.return_date;
+        const overdue = m.is_return_overdue ?? (new Date(m.expected_return_date) < new Date() && !m.actual_return_date);
         return (
           <span className={`text-sm ${overdue ? 'text-red-600 font-semibold' : 'text-gray-700'}`}>
             {formatDate(m.expected_return_date)}
@@ -393,11 +521,11 @@ export default function MovementsPage() {
       },
     },
     {
-      key: 'return_date',
+      key: 'actual_return_date',
       header: 'Retour effectif',
       render: (m) =>
-        m.return_date ? (
-          <Badge variant="success">Retourne</Badge>
+        m.actual_return_date ? (
+          <Badge variant="success">{formatDate(m.actual_return_date)}</Badge>
         ) : (
           <span className="text-gray-400">-</span>
         ),
@@ -406,7 +534,7 @@ export default function MovementsPage() {
       key: 'actions',
       header: 'Actions',
       render: (m) => {
-        const canReturn = m.movement_type === 'OUTGOING' && !m.return_date;
+        const canReturn = m.movement_type === 'OUT' && !m.actual_return_date;
         if (!canReturn) return null;
         return (
           <Button
@@ -462,9 +590,12 @@ export default function MovementsPage() {
                     <p className="text-sm font-medium text-gray-900">
                       {m.stored_item?.description ?? 'Article inconnu'}
                     </p>
+                    <p className="text-xs text-gray-500">
+                      Effectué par : {m.performed_by?.name ?? '—'}
+                    </p>
                     {m.expected_return_date && (
                       <p className="text-xs text-red-600 mt-0.5">
-                        Retour prevu le {formatDate(m.expected_return_date)}
+                        Retour prévu le {formatDate(m.expected_return_date)}
                       </p>
                     )}
                   </div>
@@ -500,7 +631,7 @@ export default function MovementsPage() {
               placeholder="Tous les types"
             />
             <Input
-              label="Date debut"
+              label="Date début"
               type="date"
               value={filters.from_date ?? ''}
               onChange={(e) =>
@@ -546,11 +677,10 @@ export default function MovementsPage() {
           onPageChange={(page) => setFilters((prev) => ({ ...prev, page }))}
           rowKey={(m) => m.id}
           emptyTitle="Aucun mouvement"
-          emptyDescription="Aucun mouvement ne correspond aux filtres selectionnes"
+          emptyDescription="Aucun mouvement ne correspond aux filtres sélectionnés"
         />
       </Card>
 
-      {/* Create modal */}
       <CreateMovementModal open={showCreateModal} onOpenChange={setShowCreateModal} />
     </div>
   );
