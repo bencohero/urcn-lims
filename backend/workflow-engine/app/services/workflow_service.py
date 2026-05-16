@@ -47,6 +47,20 @@ class WorkflowService:
     def _can_transition(self, current: str, target: str) -> bool:
         return target in self.VALID_TRANSITIONS.get(current, [])
 
+    async def _load_with_relations(self, request_id: UUID) -> Optional[AccessRequest]:
+        """Reload an access request with all relationships eagerly loaded."""
+        result = await self.db.execute(
+            select(AccessRequest)
+            .where(AccessRequest.id == request_id)
+            .options(
+                selectinload(AccessRequest.requester),
+                selectinload(AccessRequest.stored_item),
+                selectinload(AccessRequest.requester_site),
+                selectinload(AccessRequest.reviewer),
+            )
+        )
+        return result.scalar_one_or_none()
+
     async def _generate_request_number(self) -> str:
         year = datetime.now().year
         prefix = f"AR-{year}-"
@@ -170,7 +184,6 @@ class WorkflowService:
         )
         self.db.add(access_request)
         await self.db.commit()
-        await self.db.refresh(access_request)
 
         logger.info(
             "Access request created",
@@ -178,7 +191,7 @@ class WorkflowService:
             request_number=request_number,
             requester_id=str(user.id),
         )
-        return access_request
+        return await self._load_with_relations(access_request.id)
 
     async def approve_request(
         self, request_id: UUID, approve_data: AccessRequestApprove, user: User
@@ -205,8 +218,7 @@ class WorkflowService:
         ).date()
 
         await self.db.commit()
-        await self.db.refresh(access_request)
-        return access_request
+        return await self._load_with_relations(access_request.id)
 
     async def reject_request(
         self, request_id: UUID, reject_data: AccessRequestReject, user: User
@@ -228,8 +240,7 @@ class WorkflowService:
         access_request.review_notes = reject_data.review_notes
 
         await self.db.commit()
-        await self.db.refresh(access_request)
-        return access_request
+        return await self._load_with_relations(access_request.id)
 
     async def fulfill_request(
         self, request_id: UUID, user: User
@@ -252,8 +263,7 @@ class WorkflowService:
             access_request.stored_item.status = "OUT"
 
         await self.db.commit()
-        await self.db.refresh(access_request)
-        return access_request
+        return await self._load_with_relations(access_request.id)
 
     async def return_item(
         self, request_id: UUID, return_data: AccessRequestReturn, user: User
@@ -276,8 +286,7 @@ class WorkflowService:
             access_request.stored_item.status = "IN_STORAGE"
 
         await self.db.commit()
-        await self.db.refresh(access_request)
-        return access_request
+        return await self._load_with_relations(access_request.id)
 
     async def request_extension(
         self, request_id: UUID, extension_data: AccessRequestExtend, user: User
@@ -310,8 +319,7 @@ class WorkflowService:
         access_request.extension_days = extension_data.extension_days
 
         await self.db.commit()
-        await self.db.refresh(access_request)
-        return access_request
+        return await self._load_with_relations(access_request.id)
 
     async def approve_extension(
         self, request_id: UUID, user: User
@@ -338,8 +346,7 @@ class WorkflowService:
             access_request.status = "FULFILLED"
 
         await self.db.commit()
-        await self.db.refresh(access_request)
-        return access_request
+        return await self._load_with_relations(access_request.id)
 
     async def cancel_request(
         self, request_id: UUID, user: User
@@ -358,5 +365,4 @@ class WorkflowService:
         access_request.status = "CANCELLED"
 
         await self.db.commit()
-        await self.db.refresh(access_request)
-        return access_request
+        return await self._load_with_relations(access_request.id)
