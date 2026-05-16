@@ -65,7 +65,7 @@ class ItemSummary(BaseSchema):
     """Item summary for access request response."""
 
     id: UUID
-    type: str
+    type: str = Field(validation_alias=AliasChoices("item_type", "type"))
     description: Optional[str]
 
 
@@ -90,10 +90,16 @@ class AccessRequestResponse(IDTimestampSchema, AccessRequestBase):
     request_number: str
     status: str
     stored_item_id: UUID
-    item: Optional[ItemSummary] = None
+    item: Optional[ItemSummary] = Field(
+        default=None,
+        validation_alias=AliasChoices("stored_item", "item"),
+    )
     requester: UserSummary
     requester_site: SiteSummary
-    reviewed_by: Optional[UserSummary] = None
+    reviewed_by: Optional[UserSummary] = Field(
+        default=None,
+        validation_alias=AliasChoices("reviewer", "reviewed_by"),
+    )
     requested_at: datetime
     reviewed_at: Optional[datetime] = None
     review_notes: Optional[str] = None

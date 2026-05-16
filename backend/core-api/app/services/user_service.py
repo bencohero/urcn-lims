@@ -11,7 +11,7 @@ from sqlalchemy.orm import joinedload, selectinload
 
 
 from common.models import User, SiteUser, Role
-from common.schemas.user import UserCreate, UserUpdate, SiteRoleAssignmentResponse
+from common.schemas.user import UserCreate, UserUpdate, SiteRoleAssignmentResponse, SiteSummary
 from common.auth.password import hash_password, validate_password_strength
 
 from .audit_service import AuditService
@@ -73,7 +73,6 @@ class UserService:
 
     async def get_user_by_id(self, user_id: UUID) -> Optional[User]:
         """Get user by ID with site and role details."""
-        #site_users_loader = joinedload(User.site_users)
 
         query = (
             select(User)
@@ -321,6 +320,31 @@ class UserService:
         await self.db.commit()
         await self.db.refresh(user)
         return user
+
+    async def get_user_active_sites(self, user_id: UUID) -> list[SiteSummary]:
+        """Get distinct active sites for a user (active assignments only)."""
+        query = (
+            select(SiteUser)
+            .where(
+                and_(
+                    SiteUser.user_id == user_id,
+                    SiteUser.unassigned_at.is_(None),
+                )
+            )
+            .options(selectinload(SiteUser.site))
+        )
+        result = await self.db.execute(query)
+        site_users = result.scalars().all()
+
+        seen: dict = {}
+        for su in site_users:
+            if su.site and su.site_id not in seen:
+                seen[su.site_id] = SiteSummary(
+                    id=su.site_id,
+                    site_number=su.site.site_number,
+                    name=su.site.name,
+                )
+        return list(seen.values())
 
     async def get_user_site_roles(self, user_id: UUID) -> list[SiteRoleAssignmentResponse]:
         """Get all site role assignments for a user."""

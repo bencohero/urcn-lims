@@ -118,6 +118,21 @@ class AuthService:
             user_id=str(user.id),
         )
 
+        sites = [
+        su.site
+        for su in user.site_users
+        if su.site is not None
+        ]
+
+        roles = [
+            su.role
+            for su in user.site_users
+            if su.role is not None
+        ]
+
+        user.__dict__["sites"] = sites
+        user.__dict__["roles"] = roles
+
         return user
 
     async def _handle_failed_login(

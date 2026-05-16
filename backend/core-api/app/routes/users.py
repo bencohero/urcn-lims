@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from common.database import get_db
 from common.models import User
-from common.schemas.user import UserCreate, UserResponse, UserUpdate, AdminResetPasswordRequest, SiteRoleAssignmentResponse
+from common.schemas.user import UserCreate, UserResponse, UserUpdate, AdminResetPasswordRequest, SiteRoleAssignmentResponse, SiteSummary
 from common.schemas.response import APIResponse, PaginatedResponse
 from common.auth.dependencies import get_current_user, require_permission, require_role
 
@@ -47,6 +47,17 @@ async def get_current_user_profile(
         success=True,
         data=UserResponse.model_validate(user),
     )
+
+
+@router.get("/me/sites", response_model=APIResponse[list[SiteSummary]])
+async def get_current_user_sites(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get the list of sites where the authenticated user has an active assignment."""
+    service = UserService(db)
+    sites = await service.get_user_active_sites(current_user.id)
+    return APIResponse(success=True, data=sites)
 
 
 @router.get("", response_model=PaginatedResponse)

@@ -25,6 +25,15 @@ export function useUserSiteRoles(id: string) {
   });
 }
 
+
+export function useMySites() {
+  return useQuery({
+    queryKey: ['users', 'my-sites'],
+    queryFn: () => usersApi.getMySites(),
+    placeholderData: (prev) => prev,
+    });
+}
+
 export function useCreateUser() {
   const queryClient = useQueryClient();
   return useMutation({

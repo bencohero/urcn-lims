@@ -13,10 +13,9 @@ import { Badge } from '@/components/ui/Badge';
 import { useToast } from '@/components/ui/Toast';
 import { AccessRequestForm } from '@/components/features/access-requests/AccessRequestForm';
 import { useAccessRequests, useCreateAccessRequest } from '@/hooks/useAccessRequests';
-import { useAuthStore } from '@/store/authStore';
 import { formatDate, formatRelative } from '@/lib/utils/utils';
 import type { AccessRequest, AccessRequestFilters, AccessRequestStatus, Urgency, RequestType } from '@/types';
-import { useUserById } from '@/hooks/useUsers';
+import { useMySites } from '@/hooks/useUsers';
 
 const URGENCY_VARIANTS: Record<Urgency, 'default' | 'info' | 'orange' | 'danger'> = {
   LOW: 'default',
@@ -120,8 +119,7 @@ const STATUS_TABS: { value: string; label: string; status?: AccessRequestStatus 
 export default function AccessRequestsPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user: userData } = useAuthStore();
-  const { data: user } = useUserById(userData?.id || '');
+  const { data: sites } = useMySites();
   const [activeTab, setActiveTab] = useState('all');
   const [filters, setFilters] = useState<AccessRequestFilters>({
     page: 1,
@@ -152,7 +150,7 @@ export default function AccessRequestsPage() {
     reason: string;
     needed_by?: string;
   }) => {
-    const primarySiteId = user?.sites?.[0]?.id;
+    const primarySiteId = sites?.[0].id;
     if (!primarySiteId) {
       toast({ variant: 'error', title: 'Aucun site assigne a votre compte' });
       return;

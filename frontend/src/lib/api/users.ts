@@ -37,6 +37,12 @@ export interface AdminResetPasswordRequest {
   new_password: string;
 }
 
+export interface UserSiteSummary {
+  id: string;
+  site_number: string;
+  name: string;
+}
+
 export interface SiteRoleAssignment {
   id: string;
   site_id: string;
@@ -121,6 +127,11 @@ export const usersApi = {
       `/users/${id}/change-password`,
       payload,
     );
+    return data.data;
+  },
+
+  getMySites: async () => {
+    const { data } = await apiClient.get<ApiResponse<UserSiteSummary[]>>('/users/me/sites');
     return data.data;
   },
 };
