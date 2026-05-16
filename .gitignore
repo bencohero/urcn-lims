@@ -55,13 +55,16 @@ backend/.env.dev
 backend/.env.prod
 backend/.env.test
 backend/venv/
-backend/__pycache__/
-backend/*.pyc
-backend/*.pyo
 backend/.mypy_cache/
 backend/.pytest_cache/
 backend/.coverage
 backend/coverage.xml
+
+# Python cache (all nested directories)
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
 
 
 frontend/node_modules/
