@@ -6,7 +6,7 @@ from uuid import UUID
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, with_loader_criteria
 
 
 from common.models import User, SiteUser
@@ -52,6 +52,11 @@ class AuthService:
             .options(
                 selectinload(User.site_users).selectinload(SiteUser.role),
                 selectinload(User.site_users).selectinload(SiteUser.site),
+                with_loader_criteria(
+                    SiteUser,
+                    lambda cls: cls.unassigned_at.is_(None),
+                    include_aliases=True,
+                )
             )
         )
         result = await self.db.execute(query)
