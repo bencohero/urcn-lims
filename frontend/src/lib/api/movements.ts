@@ -27,9 +27,32 @@ export interface FullMovement {
   is_return_overdue?: boolean;
   stored_item?: {
     id: string;
-    description?: string;
     item_type: string;
     status: string;
+    description?: string;
+    internal_code?: string;
+    container?: { id: string; name: string; code?: string };
+    location?: { id: string; name: string; code?: string };
+    // Document
+    document_type?: string;
+    subject_id?: string;
+    visit_number?: string;
+    form_name?: string;
+    version?: string;
+    page_count?: number;
+    confidentiality_level?: string;
+    // Equipment
+    equipment_type?: string;
+    manufacturer?: string;
+    model?: string;
+    serial_number?: string;
+    operational_status?: string;
+    // Consumable
+    consumable_type?: string;
+    lot_number?: string;
+    expiry_date?: string;
+    catalog_number?: string;
+    hazardous?: boolean;
   };
   movement_date: string;
   created_at: string;

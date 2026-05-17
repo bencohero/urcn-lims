@@ -50,6 +50,7 @@ const SitesListPage = lazyPage(() => import('@/pages/sites/SitesListPage'));
 const SiteDetailPage = lazyPage(() => import('@/pages/sites/SiteDetailPage'));
 const StorageLocationsPage = lazyPage(() => import('@/pages/storage/StorageLocationsPage'));
 const MovementsPage = lazyPage(() => import('@/pages/movements/MovementsPage'));
+const MovementDetailPage = lazyPage(() => import('@/pages/movements/MovementDetailPage'));
 
 // Priority 3 pages
 const NotificationsPage = lazyPage(() => import('@/pages/notifications/NotificationsPage'));
@@ -112,6 +113,7 @@ export const router = createBrowserRouter([
 
           // Movements
           { path: 'movements', element: MovementsPage },
+          { path: 'movements/:id', element: MovementDetailPage },
 
           // Reports
           { path: 'reports', element: ReportsPage },

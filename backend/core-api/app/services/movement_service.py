@@ -6,16 +6,21 @@ from uuid import UUID
 
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectin_polymorphic, selectinload
 
-import sys
-sys.path.insert(0, "/home/skamboule/claude-code/urcn-lims/backend")
-
-from common.models import Container, Movement, StoredItem, User
+from common.models import Consumable, Container, Document, Equipment, Movement, StoredItem, User
 from common.schemas.movement import MovementCreate
 from common.auth.permissions import PermissionChecker
 
 from .audit_service import AuditService
+
+
+def _stored_item_loader():
+    """Loader option that eagerly fetches the concrete subclass columns."""
+    return selectinload(Movement.stored_item).options(
+        selectin_polymorphic(StoredItem, [Document, Equipment, Consumable]),
+        selectinload(StoredItem.container).selectinload(Container.location),
+    )
 
 
 class MovementService:
@@ -31,7 +36,7 @@ class MovementService:
             select(Movement)
             .where(Movement.id == movement_id)
             .options(
-                selectinload(Movement.stored_item),
+                _stored_item_loader(),
                 selectinload(Movement.performer),
                 selectinload(Movement.approver),
                 selectinload(Movement.from_container),
@@ -55,7 +60,7 @@ class MovementService:
     ) -> Tuple[List[Movement], int]:
         """Get movements with filters and pagination."""
         query = select(Movement).options(
-            selectinload(Movement.stored_item),
+            _stored_item_loader(),
             selectinload(Movement.performer),
             selectinload(Movement.approver),
             selectinload(Movement.from_container),
@@ -113,7 +118,7 @@ class MovementService:
             select(Movement)
             .where(Movement.id == movement_id)
             .options(
-                selectinload(Movement.stored_item),
+                _stored_item_loader(),
                 selectinload(Movement.performer),
                 selectinload(Movement.approver),
                 selectinload(Movement.from_container),
@@ -231,7 +236,7 @@ class MovementService:
                 )
             )
             .options(
-                selectinload(Movement.stored_item),
+                _stored_item_loader(),
                 selectinload(Movement.performer),
             )
             .order_by(Movement.expected_return_date.asc())

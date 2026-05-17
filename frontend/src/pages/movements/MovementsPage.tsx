@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -458,6 +459,7 @@ function CreateMovementModal({
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function MovementsPage() {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [filters, setFilters] = useState<MovementFilters>({});
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -705,6 +707,7 @@ export default function MovementsPage() {
           pagination={movementsData?.pagination}
           onPageChange={(page) => setFilters((prev) => ({ ...prev, page }))}
           rowKey={(m) => m.id}
+          onRowClick={(m) => navigate(`/movements/${m.id}`)}
           emptyTitle="Aucun mouvement"
           emptyDescription="Aucun mouvement ne correspond aux filtres sélectionnés"
         />
