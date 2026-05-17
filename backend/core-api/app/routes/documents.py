@@ -7,15 +7,15 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import sys
-sys.path.insert(0, "/home/skamboule/claude-code/urcn-lims/backend")
 
 from common.database import get_db
 from common.models import User
+from common.schemas.audit import AuditTrailResponse
 from common.schemas.document import DocumentCreate, DocumentResponse, DocumentUpdate
 from common.schemas.response import APIResponse, PaginatedResponse
 from common.auth.dependencies import get_current_user, require_permission
 
+from ..services.audit_service import AuditService
 from ..services.document_service import DocumentService
 
 router = APIRouter()
@@ -92,6 +92,30 @@ async def get_document(
     return APIResponse(
         success=True,
         data=DocumentResponse.model_validate(document),
+    )
+
+
+@router.get("/{document_id}/history", response_model=APIResponse[list[AuditTrailResponse]])
+async def get_document_history(
+    document_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get full audit history for a document."""
+    # Permission check: ensure user can see this document
+    doc_service = DocumentService(db)
+    document = await doc_service.get_document_by_id(document_id, current_user)
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found",
+        )
+
+    audit_service = AuditService(db)
+    records = await audit_service.get_record_history("documents", document_id)
+    return APIResponse(
+        success=True,
+        data=[AuditTrailResponse.model_validate(r) for r in records],
     )
 
 

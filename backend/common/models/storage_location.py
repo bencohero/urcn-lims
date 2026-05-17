@@ -100,6 +100,10 @@ class StorageLocation(BaseModel):
     )
 
     @property
+    def containers_count(self) -> int:
+        return len(self.containers)
+
+    @property
     def is_active(self) -> bool:
         return self.status == "ACTIVE"
 

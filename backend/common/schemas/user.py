@@ -107,3 +107,24 @@ class ChangePasswordRequest(BaseSchema):
     current_password: str
     new_password: str = Field(min_length=12, max_length=128)
     confirm_password: str
+
+
+class AdminResetPasswordRequest(BaseSchema):
+    """Admin force-reset password request schema."""
+
+    new_password: str = Field(min_length=12, max_length=128)
+
+
+class SiteRoleAssignmentResponse(BaseSchema):
+    """Site role assignment response."""
+
+    id: UUID
+    site_id: UUID
+    site_number: str
+    site_name: str
+    role_id: UUID
+    role_code: str
+    role_name: str
+    is_primary: bool
+    assigned_at: str
+    is_active: bool

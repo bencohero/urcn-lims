@@ -1,19 +1,17 @@
 """User service."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional, Tuple
 from uuid import UUID
 
 from fastapi import HTTPException, status
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import joinedload, selectinload
 
-import sys
-sys.path.insert(0, "/home/skamboule/claude-code/urcn-lims/backend")
 
 from common.models import User, SiteUser, Role
-from common.schemas.user import UserCreate, UserUpdate
+from common.schemas.user import UserCreate, UserUpdate, SiteRoleAssignmentResponse, SiteSummary
 from common.auth.password import hash_password, validate_password_strength
 
 from .audit_service import AuditService
@@ -75,6 +73,7 @@ class UserService:
 
     async def get_user_by_id(self, user_id: UUID) -> Optional[User]:
         """Get user by ID with site and role details."""
+
         query = (
             select(User)
             .where(User.id == user_id)
@@ -83,8 +82,26 @@ class UserService:
                 selectinload(User.site_users).selectinload(SiteUser.role),
             )
         )
+
         result = await self.db.execute(query)
-        return result.scalar_one_or_none()
+        user = result.scalar_one_or_none()
+
+        sites = [
+        su.site
+        for su in user.site_users
+        if su.site is not None
+        ]
+
+        roles = [
+            su.role
+            for su in user.site_users
+            if su.role is not None
+        ]
+        # Print l'objet user dans les logs pour vérifier les données chargées, notamment les rôles et sites associés
+
+        user.__dict__["sites"] = sites
+        user.__dict__["roles"] = roles
+        return user
 
     async def get_user_by_username(self, username: str) -> Optional[User]:
         """Get user by username."""
@@ -135,7 +152,7 @@ class UserService:
             phone=user_data.phone,
             is_active=user_data.is_active,
             is_superuser=user_data.is_superuser,
-            password_changed_at=datetime.utcnow(),
+            password_changed_at=datetime.now(timezone.utc),
             created_by=current_user.id,
         )
         self.db.add(user)
@@ -225,6 +242,140 @@ class UserService:
         await self.db.refresh(user)
         return user
 
+    async def activate_user(self, user_id: UUID, current_user: User) -> Optional[User]:
+        """Reactivate a deactivated user."""
+        user = await self.get_user_by_id(user_id)
+        if not user:
+            return None
+
+        user.is_active = True
+        user.updated_by = current_user.id
+
+        await self.audit_service.log_action(
+            event_type="UPDATE",
+            table_name="users",
+            record_id=user.id,
+            user_id=current_user.id,
+            old_values={"is_active": False},
+            new_values={"is_active": True},
+            action="User reactivated",
+        )
+
+        await self.db.commit()
+        await self.db.refresh(user)
+        return user
+
+    async def unlock_user(self, user_id: UUID, current_user: User) -> Optional[User]:
+        """Unlock a locked user account."""
+        user = await self.get_user_by_id(user_id)
+        if not user:
+            return None
+
+        user.locked_until = None
+        user.failed_login_attempts = 0
+        user.updated_by = current_user.id
+
+        await self.audit_service.log_action(
+            event_type="UPDATE",
+            table_name="users",
+            record_id=user.id,
+            user_id=current_user.id,
+            old_values={"locked_until": str(user.locked_until), "failed_login_attempts": user.failed_login_attempts},
+            new_values={"locked_until": None, "failed_login_attempts": 0},
+            action="User account unlocked by admin",
+        )
+
+        await self.db.commit()
+        await self.db.refresh(user)
+        return user
+
+    async def admin_reset_password(
+        self, user_id: UUID, new_password: str, current_user: User
+    ) -> Optional[User]:
+        """Force-reset a user's password (admin action)."""
+        user = await self.get_user_by_id(user_id)
+        if not user:
+            return None
+
+        is_valid, errors = validate_password_strength(new_password)
+        if not is_valid:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"message": "Password does not meet requirements", "errors": errors},
+            )
+
+        user.password_hash = hash_password(new_password)
+        user.password_changed_at = datetime.now(timezone.utc)
+        user.updated_by = current_user.id
+
+        await self.audit_service.log_action(
+            event_type="UPDATE",
+            table_name="users",
+            record_id=user.id,
+            user_id=current_user.id,
+            new_values={"password_reset": True},
+            action="Password reset by admin",
+        )
+
+        await self.db.commit()
+        await self.db.refresh(user)
+        return user
+
+    async def get_user_active_sites(self, user_id: UUID) -> list[SiteSummary]:
+        """Get distinct active sites for a user (active assignments only)."""
+        query = (
+            select(SiteUser)
+            .where(
+                and_(
+                    SiteUser.user_id == user_id,
+                    SiteUser.unassigned_at.is_(None),
+                )
+            )
+            .options(selectinload(SiteUser.site))
+        )
+        result = await self.db.execute(query)
+        site_users = result.scalars().all()
+
+        seen: dict = {}
+        for su in site_users:
+            if su.site and su.site_id not in seen:
+                seen[su.site_id] = SiteSummary(
+                    id=su.site_id,
+                    site_number=su.site.site_number,
+                    name=su.site.name,
+                )
+        return list(seen.values())
+
+    async def get_user_site_roles(self, user_id: UUID) -> list[SiteRoleAssignmentResponse]:
+        """Get all site role assignments for a user."""
+        query = (
+            select(SiteUser)
+            .where(SiteUser.user_id == user_id)
+            .options(
+                selectinload(SiteUser.site),
+                selectinload(SiteUser.role),
+            )
+            .order_by(SiteUser.assigned_at.desc())
+        )
+        result = await self.db.execute(query)
+        site_users = result.scalars().all()
+
+        return [
+            SiteRoleAssignmentResponse(
+                id=su.id,
+                site_id=su.site_id,
+                site_number=su.site.site_number,
+                site_name=su.site.name,
+                role_id=su.role_id,
+                role_code=su.role.code,
+                role_name=su.role.name,
+                is_primary=su.is_primary,
+                assigned_at=su.assigned_at.isoformat(),
+                is_active=su.unassigned_at is None,
+            )
+            for su in site_users
+        ]
+
     async def assign_site_role(
         self,
         user_id: UUID,
@@ -242,46 +393,80 @@ class UserService:
                 detail="User not found",
             )
 
-        # Check for existing active assignment
+        # Check for existing active & inactive assignment
         query = select(SiteUser).where(
             and_(
                 SiteUser.user_id == user_id,
                 SiteUser.site_id == site_id,
                 SiteUser.role_id == role_id,
-                SiteUser.unassigned_at.is_(None),
+                #SiteUser.unassigned_at.is_(None),
             )
         )
         result = await self.db.execute(query)
         existing = result.scalar_one_or_none()
+
+        site_user: SiteUser = None
+        now = datetime.now(timezone.utc)
+
         if existing:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="User already has this role on this site",
+            # If there's an existing active assignment, prevent duplicate
+            if existing.unassigned_at is None:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="User already has this role on this site",
+                )
+            # If there's an existing inactive assignment, we can reactivate it
+            old_unassigned_at = existing.unassigned_at
+            old_assigned_at = existing.assigned_at
+
+            existing.unassigned_at = None
+            existing.assigned_at = now
+            existing.updated_by = current_user.id
+            existing.is_primary = is_primary
+            site_user = existing
+
+            await self.audit_service.log_action(
+                event_type="UPDATE",
+                table_name="site_users",
+                record_id=existing.id,
+                user_id=current_user.id,
+                old_values={
+                    "assigned_at": (
+                        old_assigned_at.isoformat()
+                        if old_assigned_at
+                        else None
+                    ),
+                },
+                new_values={
+                    "assigned_at": now.isoformat(),
+                    "unassigned_at": None,
+                },
+                action="User re-assigned to site with role",
             )
+        else:
+            site_user = SiteUser(
+                user_id=user_id,
+                site_id=site_id,
+                role_id=role_id,
+                is_primary=is_primary,
+                assigned_at=now,
+                created_by=current_user.id,
+            )
+            self.db.add(site_user)
 
-        site_user = SiteUser(
-            user_id=user_id,
-            site_id=site_id,
-            role_id=role_id,
-            is_primary=is_primary,
-            assigned_at=datetime.utcnow(),
-            created_by=current_user.id,
-        )
-        self.db.add(site_user)
-
-        await self.audit_service.log_action(
-            event_type="CREATE",
-            table_name="site_users",
-            record_id=site_user.id,
-            user_id=current_user.id,
-            new_values={
-                "user_id": str(user_id),
-                "site_id": str(site_id),
-                "role_id": str(role_id),
-                "is_primary": is_primary,
-            },
-            action="User assigned to site with role",
-        )
+            await self.audit_service.log_action(
+                event_type="CREATE",
+                table_name="site_users",
+                record_id=site_user.id,
+                user_id=current_user.id,
+                new_values={
+                    "user_id": str(user_id),
+                    "site_id": str(site_id),
+                    "role_id": str(role_id),
+                    "is_primary": is_primary,
+                },
+                action="User assigned to site with role",
+            )
 
         await self.db.commit()
         await self.db.refresh(site_user)
@@ -309,7 +494,7 @@ class UserService:
         if not site_user:
             return None
 
-        site_user.unassigned_at = datetime.utcnow()
+        site_user.unassigned_at = datetime.now(timezone.utc)
 
         await self.audit_service.log_action(
             event_type="UPDATE",

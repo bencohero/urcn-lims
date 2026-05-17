@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { usersApi, type UserFilters, type CreateUserRequest, type UpdateUserRequest } from '@/lib/api/users';
+import { usersApi, type UserFilters, type CreateUserRequest, type UpdateUserRequest, type AdminResetPasswordRequest } from '@/lib/api/users';
 
 export function useUsers(filters?: UserFilters) {
   return useQuery({
@@ -15,6 +15,23 @@ export function useUserById(id: string) {
     queryFn: () => usersApi.getById(id),
     enabled: !!id,
   });
+}
+
+export function useUserSiteRoles(id: string) {
+  return useQuery({
+    queryKey: ['users', id, 'site-roles'],
+    queryFn: () => usersApi.getSiteRoles(id),
+    enabled: !!id,
+  });
+}
+
+
+export function useMySites() {
+  return useQuery({
+    queryKey: ['users', 'my-sites'],
+    queryFn: () => usersApi.getMySites(),
+    placeholderData: (prev) => prev,
+    });
 }
 
 export function useCreateUser() {
@@ -39,12 +56,63 @@ export function useUpdateUser() {
   });
 }
 
-export function useToggleUserActive() {
+export function useActivateUser() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => usersApi.toggleActive(id),
+    mutationFn: (id: string) => usersApi.activate(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+  });
+}
+
+export function useDeactivateUser() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => usersApi.deactivate(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+  });
+}
+
+export function useUnlockUser() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => usersApi.unlock(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+  });
+}
+
+export function useAdminResetPassword() {
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: AdminResetPasswordRequest }) =>
+      usersApi.resetPassword(id, payload),
+  });
+}
+
+export function useAssignSiteRole() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...payload }: { id: string; site_id: string; role_id: string; is_primary?: boolean }) =>
+      usersApi.assignSiteRole(id, payload),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['users', variables.id, 'site-roles'] });
+    },
+  });
+}
+
+export function useUnassignSiteRole() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...payload }: { id: string; site_id: string; role_id: string }) =>
+      usersApi.unassignSiteRole(id, payload),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['users', variables.id, 'site-roles'] });
     },
   });
 }

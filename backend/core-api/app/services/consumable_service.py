@@ -8,10 +8,7 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-import sys
-sys.path.insert(0, "/home/skamboule/claude-code/urcn-lims/backend")
-
-from common.models import Consumable, StoredItem, User
+from common.models import Consumable, StoredItem, User, Container
 from common.schemas.consumable import ConsumableCreate, ConsumableUpdate
 from common.auth.permissions import PermissionChecker
 
@@ -42,7 +39,7 @@ class ConsumableService:
             .options(
                 selectinload(Consumable.study),
                 selectinload(Consumable.site),
-                selectinload(Consumable.container),
+                selectinload(Consumable.container).selectinload(Container.location),
             )
         )
 
@@ -89,7 +86,7 @@ class ConsumableService:
             .options(
                 selectinload(Consumable.study),
                 selectinload(Consumable.site),
-                selectinload(Consumable.container),
+                selectinload(Consumable.container).selectinload(Container.location),
             )
         )
         result = await self.db.execute(query)
@@ -104,11 +101,10 @@ class ConsumableService:
 
     async def create_consumable(self, consumable_data: ConsumableCreate, user: User) -> Consumable:
         """Create new consumable."""
-        stored_item = StoredItem(
+        consumable = Consumable(
             study_id=consumable_data.study_id,
             site_id=consumable_data.site_id,
             container_id=consumable_data.container_id,
-            item_type="CONSUMABLE",
             internal_code=consumable_data.internal_code,
             description=consumable_data.description,
             quantity=consumable_data.quantity,
@@ -119,12 +115,6 @@ class ConsumableService:
             location_notes=consumable_data.location_notes,
             status="IN_STORAGE",
             created_by=user.id,
-        )
-        self.db.add(stored_item)
-        await self.db.flush()
-
-        consumable = Consumable(
-            id=stored_item.id,
             consumable_type=consumable_data.consumable_type,
             manufacturer=consumable_data.manufacturer,
             catalog_number=consumable_data.catalog_number,
@@ -147,8 +137,18 @@ class ConsumableService:
         )
 
         await self.db.commit()
-        await self.db.refresh(consumable)
-        return consumable
+
+        # Reload with relationships to avoid lazy-load issues
+        result = await self.db.execute(
+            select(Consumable)
+            .where(Consumable.id == consumable.id)
+            .options(
+                selectinload(Consumable.study),
+                selectinload(Consumable.site),
+                selectinload(Consumable.container).selectinload(Container.location),
+            )
+        )
+        return result.scalar_one()
 
     async def update_consumable(
         self, consumable_id: UUID, consumable_data: ConsumableUpdate, user: User

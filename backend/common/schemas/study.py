@@ -4,9 +4,11 @@ from datetime import date
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import Field, AliasChoices
 
 from .base import BaseSchema, IDTimestampSchema
+
+_STATUS_PATTERN = "^(ACTIVE|PAUSED|COMPLETED|CANCELLED|TERMINATED)$"
 
 
 class StudyBase(BaseSchema):
@@ -27,7 +29,7 @@ class StudyBase(BaseSchema):
 class StudyCreate(StudyBase):
     """Schema for creating a study."""
 
-    status: str = Field(default="ACTIVE", pattern="^(ACTIVE|PAUSED|COMPLETED|CANCELLED)$")
+    status: str = Field(default="ACTIVE", pattern=_STATUS_PATTERN)
 
 
 class StudyUpdate(BaseSchema):
@@ -42,10 +44,8 @@ class StudyUpdate(BaseSchema):
     estimated_enrollment: Optional[int] = Field(default=None, ge=0)
     retention_period_years: Optional[int] = Field(default=None, ge=1)
     description: Optional[str] = None
-    status: Optional[str] = Field(
-        default=None, pattern="^(ACTIVE|PAUSED|COMPLETED|CANCELLED)$"
-    )
-    metadata: Optional[Dict[str, Any]] = None
+    status: Optional[str] = Field(default=None, pattern=_STATUS_PATTERN)
+    meta_data: Optional[Dict[str, Any]] = None
 
 
 class StudyStatistics(BaseSchema):
@@ -57,10 +57,27 @@ class StudyStatistics(BaseSchema):
     active_access_requests: int = 0
 
 
+class SiteSummary(BaseSchema):
+    """Site summary for study response."""
+
+    id: UUID
+    site_number: str
+    name: str
+    country: Optional[str] = None
+    city: Optional[str] = None
+    status: str
+
+
 class StudyResponse(IDTimestampSchema, StudyBase):
     """Study response schema."""
 
     status: str
     sites_count: int = 0
+    sites: List[SiteSummary] = []
     statistics: Optional[StudyStatistics] = None
-    metadata: Optional[Dict[str, Any]] = None
+    # validation_alias reads study.meta_data from the ORM object;
+    # the field is serialized as "metadata" in JSON responses.
+    metadata: Optional[Dict[str, Any]] = Field(
+        default=None,
+        validation_alias=AliasChoices("meta_data", "metadata"),
+    )

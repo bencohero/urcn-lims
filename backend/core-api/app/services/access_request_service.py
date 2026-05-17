@@ -9,8 +9,6 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-import sys
-sys.path.insert(0, "/home/skamboule/claude-code/urcn-lims/backend")
 
 from common.models import AccessRequest, StoredItem, User
 from common.schemas.access_request import (
@@ -27,7 +25,6 @@ from .audit_service import AuditService
 
 settings = get_settings()
 
-
 class AccessRequestService:
     """Service for access request workflow operations."""
 
@@ -37,7 +34,7 @@ class AccessRequestService:
 
     async def _generate_request_number(self) -> str:
         """Generate next sequential request number: AR-YYYY-NNNN."""
-        year = datetime.utcnow().year
+        year = datetime.now().year
         prefix = f"AR-{year}-"
 
         result = await self.db.execute(
@@ -54,11 +51,13 @@ class AccessRequestService:
         requester_id: Optional[UUID] = None,
         stored_item_id: Optional[UUID] = None,
         urgency: Optional[str] = None,
+        search: Optional[str] = None,
         page: int = 1,
         page_size: int = 50,
         user: User = None,
     ) -> Tuple[List[AccessRequest], int]:
         """Get access requests with filters and pagination."""
+        from sqlalchemy import or_
         query = select(AccessRequest).options(
             selectinload(AccessRequest.stored_item),
             selectinload(AccessRequest.requester),
@@ -75,6 +74,13 @@ class AccessRequestService:
             filters.append(AccessRequest.stored_item_id == stored_item_id)
         if urgency:
             filters.append(AccessRequest.urgency == urgency)
+        if search:
+            filters.append(
+                or_(
+                    AccessRequest.request_number.ilike(f"%{search}%"),
+                    AccessRequest.purpose.ilike(f"%{search}%"),
+                )
+            )
 
         # RLS filter
         if user and not user.is_superuser:
@@ -99,6 +105,9 @@ class AccessRequestService:
 
         result = await self.db.execute(query)
         requests = result.scalars().all()
+
+        # add logging for debugging
+        print(f"Request returned: {len(requests)}")
 
         return requests, total
 

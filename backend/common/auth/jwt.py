@@ -132,6 +132,7 @@ def verify_token(token: str, token_type: str = "access") -> Optional[UUID]:
     Returns:
         User UUID if valid, None otherwise
     """
+    print("TOKEN:", token)
     payload = decode_token(token)
     if payload is None:
         return None

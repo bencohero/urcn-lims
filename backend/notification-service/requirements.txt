@@ -1,0 +1,35 @@
+# ============================================================
+# notification-service — requirements.txt
+# ============================================================
+
+# Core Framework
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+
+# Data Validation
+pydantic[email]==2.5.3
+pydantic-settings==2.1.0
+
+# Database
+sqlalchemy[asyncio]==2.0.25
+asyncpg==0.29.0
+
+# Auth & Security
+python-jose[cryptography]==3.3.0
+
+# Cache
+redis==5.0.1
+
+# Task Queue
+celery==5.3.6
+
+# Messaging
+aio-pika==9.3.1
+
+# Configuration
+python-dotenv==1.0.0
+
+# Logging
+structlog==24.1.0
+
+email-validator==2.0.0

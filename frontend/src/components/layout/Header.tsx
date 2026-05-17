@@ -3,6 +3,7 @@ import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { useUIStore } from '@/store/uiStore';
+import { useUnreadCount } from '@/hooks/useNotifications';
 import { Breadcrumb } from './Breadcrumb';
 import { getInitials } from '@/lib/utils/utils';
 import { cn } from '@/lib/utils/utils';
@@ -25,9 +26,8 @@ export function Header({ className }: HeaderProps) {
     navigate('/login');
   };
 
-  // Placeholder for unread notification count.
-  // Replace with actual data from a notifications store or query when available.
-  const unreadCount = 0;
+  const { data: unreadData } = useUnreadCount();
+  const unreadCount = unreadData?.count ?? 0;
 
   return (
     <header

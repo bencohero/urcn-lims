@@ -8,10 +8,7 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-import sys
-sys.path.insert(0, "/home/skamboule/claude-code/urcn-lims/backend")
-
-from common.models import Equipment, StoredItem, User
+from common.models import Equipment, StoredItem, User, Container
 from common.schemas.equipment import EquipmentCreate, EquipmentUpdate
 from common.auth.permissions import PermissionChecker
 
@@ -42,7 +39,7 @@ class EquipmentService:
             .options(
                 selectinload(Equipment.study),
                 selectinload(Equipment.site),
-                selectinload(Equipment.container),
+                selectinload(Equipment.container).selectinload(Container.location),
             )
         )
 
@@ -89,7 +86,7 @@ class EquipmentService:
             .options(
                 selectinload(Equipment.study),
                 selectinload(Equipment.site),
-                selectinload(Equipment.container),
+                selectinload(Equipment.container).selectinload(Container.location),
             )
         )
         result = await self.db.execute(query)
@@ -104,11 +101,10 @@ class EquipmentService:
 
     async def create_equipment(self, equipment_data: EquipmentCreate, user: User) -> Equipment:
         """Create new equipment."""
-        stored_item = StoredItem(
+        equipment = Equipment(
             study_id=equipment_data.study_id,
             site_id=equipment_data.site_id,
             container_id=equipment_data.container_id,
-            item_type="EQUIPMENT",
             internal_code=equipment_data.internal_code,
             description=equipment_data.description,
             quantity=equipment_data.quantity,
@@ -118,12 +114,6 @@ class EquipmentService:
             location_notes=equipment_data.location_notes,
             status="IN_STORAGE",
             created_by=user.id,
-        )
-        self.db.add(stored_item)
-        await self.db.flush()
-
-        equipment = Equipment(
-            id=stored_item.id,
             equipment_type=equipment_data.equipment_type,
             manufacturer=equipment_data.manufacturer,
             model=equipment_data.model,
@@ -150,8 +140,18 @@ class EquipmentService:
         )
 
         await self.db.commit()
-        await self.db.refresh(equipment)
-        return equipment
+
+        # Reload with relationships to avoid lazy-load issues
+        result = await self.db.execute(
+            select(Equipment)
+            .where(Equipment.id == equipment.id)
+            .options(
+                selectinload(Equipment.study),
+                selectinload(Equipment.site),
+                selectinload(Equipment.container).selectinload(Container.location),
+            )
+        )
+        return result.scalar_one()
 
     async def update_equipment(
         self, equipment_id: UUID, equipment_data: EquipmentUpdate, user: User

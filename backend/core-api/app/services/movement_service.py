@@ -6,16 +6,21 @@ from uuid import UUID
 
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectin_polymorphic, selectinload
 
-import sys
-sys.path.insert(0, "/home/skamboule/claude-code/urcn-lims/backend")
-
-from common.models import Container, Movement, StoredItem, User
+from common.models import Consumable, Container, Document, Equipment, Movement, StoredItem, User
 from common.schemas.movement import MovementCreate
 from common.auth.permissions import PermissionChecker
 
 from .audit_service import AuditService
+
+
+def _stored_item_loader():
+    """Loader option that eagerly fetches the concrete subclass columns."""
+    return selectinload(Movement.stored_item).options(
+        selectin_polymorphic(StoredItem, [Document, Equipment, Consumable]),
+        selectinload(StoredItem.container).selectinload(Container.location),
+    )
 
 
 class MovementService:
@@ -24,6 +29,23 @@ class MovementService:
     def __init__(self, db: AsyncSession):
         self.db = db
         self.audit_service = AuditService(db)
+
+    async def _load_with_relations(self, movement_id: UUID) -> Optional[Movement]:
+        """Reload a movement with all relationships eagerly loaded."""
+        result = await self.db.execute(
+            select(Movement)
+            .where(Movement.id == movement_id)
+            .options(
+                _stored_item_loader(),
+                selectinload(Movement.performer),
+                selectinload(Movement.approver),
+                selectinload(Movement.from_container),
+                selectinload(Movement.to_container),
+                selectinload(Movement.from_location),
+                selectinload(Movement.to_location),
+            )
+        )
+        return result.scalar_one_or_none()
 
     async def get_movements(
         self,
@@ -38,7 +60,7 @@ class MovementService:
     ) -> Tuple[List[Movement], int]:
         """Get movements with filters and pagination."""
         query = select(Movement).options(
-            selectinload(Movement.stored_item),
+            _stored_item_loader(),
             selectinload(Movement.performer),
             selectinload(Movement.approver),
             selectinload(Movement.from_container),
@@ -96,7 +118,7 @@ class MovementService:
             select(Movement)
             .where(Movement.id == movement_id)
             .options(
-                selectinload(Movement.stored_item),
+                _stored_item_loader(),
                 selectinload(Movement.performer),
                 selectinload(Movement.approver),
                 selectinload(Movement.from_container),
@@ -143,7 +165,7 @@ class MovementService:
             reason=movement_data.reason,
             expected_return_date=movement_data.expected_return_date,
             notes=movement_data.notes,
-            performed_by=user.id,
+            performed_by=movement_data.performed_by_id or user.id,
             movement_date=datetime.utcnow(),
         )
         self.db.add(movement)
@@ -197,8 +219,7 @@ class MovementService:
         )
 
         await self.db.commit()
-        await self.db.refresh(movement)
-        return movement
+        return await self._load_with_relations(movement.id)
 
     async def get_overdue_movements(
         self, user: User
@@ -215,7 +236,7 @@ class MovementService:
                 )
             )
             .options(
-                selectinload(Movement.stored_item),
+                _stored_item_loader(),
                 selectinload(Movement.performer),
             )
             .order_by(Movement.expected_return_date.asc())
@@ -256,5 +277,4 @@ class MovementService:
         )
 
         await self.db.commit()
-        await self.db.refresh(movement)
-        return movement
+        return await self._load_with_relations(movement.id)

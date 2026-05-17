@@ -12,6 +12,8 @@ from . import (
     movements,
     access_requests,
     audit,
+    roles,
+    system_settings,
 )
 
 __all__ = [
@@ -26,4 +28,6 @@ __all__ = [
     "movements",
     "access_requests",
     "audit",
+    "roles",
+    "system_settings",
 ]

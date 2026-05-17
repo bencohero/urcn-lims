@@ -33,18 +33,21 @@ async def get_access_requests(
     requester_id: Optional[UUID] = Query(None),
     stored_item_id: Optional[UUID] = Query(None),
     urgency: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """Get list of access requests with filters."""
+
     service = AccessRequestService(db)
     requests, total = await service.get_access_requests(
         status_filter=status_filter,
         requester_id=requester_id,
         stored_item_id=stored_item_id,
         urgency=urgency,
+        search=search,
         page=page,
         page_size=page_size,
         user=current_user,

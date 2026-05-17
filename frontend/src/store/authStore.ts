@@ -58,6 +58,7 @@ interface AuthState {
 
   hasPermission: (resource: string, action: string) => boolean;
   hasRole: (roleCode: RoleCode) => boolean;
+  isSuperUser: () => boolean;
 }
 
 /* ====================================
@@ -123,6 +124,12 @@ export const useAuthStore = create<AuthState>()(
         if (!user) return false;
         
         return user.roles?.some((role) => role.code === roleCode) ?? false;
+      },
+      isSuperUser: () => {
+        const { user } = get();
+        if (!user) return false;
+        
+        return user.is_superuser;
       },
     }),
     {

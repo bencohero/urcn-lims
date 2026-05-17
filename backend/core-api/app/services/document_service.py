@@ -8,10 +8,8 @@ from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-import sys
-sys.path.insert(0, "/home/skamboule/claude-code/urcn-lims/backend")
 
-from common.models import Document, StoredItem, User
+from common.models import Document, StoredItem, User, Container, StorageLocation
 from common.schemas.document import DocumentCreate, DocumentUpdate
 from common.auth.permissions import PermissionChecker
 
@@ -45,7 +43,7 @@ class DocumentService:
             .options(
                 selectinload(Document.study),
                 selectinload(Document.site),
-                selectinload(Document.container),
+                selectinload(Document.container).selectinload(Container.location),
             )
         )
 
@@ -108,7 +106,7 @@ class DocumentService:
             .options(
                 selectinload(Document.study),
                 selectinload(Document.site),
-                selectinload(Document.container),
+                selectinload(Document.container).selectinload(Container.location),
                 selectinload(Document.movements),
                 selectinload(Document.access_requests),
             )
@@ -127,12 +125,10 @@ class DocumentService:
         self, document_data: DocumentCreate, user: User
     ) -> Document:
         """Create a new document."""
-        # Create base stored item
-        stored_item = StoredItem(
+        document = Document(
             study_id=document_data.study_id,
             site_id=document_data.site_id,
             container_id=document_data.container_id,
-            item_type="DOCUMENT",
             internal_code=document_data.internal_code,
             description=document_data.description,
             quantity=document_data.quantity,
@@ -143,13 +139,6 @@ class DocumentService:
             location_notes=document_data.location_notes,
             status="IN_STORAGE",
             created_by=user.id,
-        )
-        self.db.add(stored_item)
-        await self.db.flush()
-
-        # Create document
-        document = Document(
-            id=stored_item.id,
             document_type=document_data.document_type,
             subject_id=document_data.subject_id,
             visit_number=document_data.visit_number,
@@ -174,8 +163,18 @@ class DocumentService:
         )
 
         await self.db.commit()
-        await self.db.refresh(document)
-        return document
+
+        # Reload with relationships to avoid lazy-load issues
+        result = await self.db.execute(
+            select(Document)
+            .where(Document.id == document.id)
+            .options(
+                selectinload(Document.study),
+                selectinload(Document.site),
+                selectinload(Document.container).selectinload(Container.location),
+            )
+        )
+        return result.scalar_one()
 
     async def update_document(
         self, document_id: UUID, document_data: DocumentUpdate, user: User
@@ -185,36 +184,42 @@ class DocumentService:
         if not document:
             return None
 
-        # Store old values for audit
-        old_values = {
-            "container_id": str(document.container_id) if document.container_id else None,
-            "physical_condition": document.physical_condition,
-            "location_notes": document.location_notes,
-        }
-
-        # Update fields
         update_data = document_data.model_dump(exclude_unset=True)
+
+        # Capture old values for audit from the same keys being updated
+        old_values = {}
+        for key in update_data:
+            val = getattr(document, key, None)
+            old_values[key] = str(val) if val is not None else None
+
+        # All fields (StoredItem + Document) are directly on document due to joined-table inheritance
         for key, value in update_data.items():
-            if hasattr(document, key):
-                setattr(document, key, value)
-            elif hasattr(document.stored_item, key):
-                setattr(document.stored_item, key, value)
+            setattr(document, key, value)
 
         document.updated_by = user.id
 
-        # Audit
         await self.audit_service.log_action(
             event_type="UPDATE",
             table_name="documents",
             record_id=document.id,
             user_id=user.id,
             old_values=old_values,
-            new_values=update_data,
+            new_values={k: str(v) if v is not None else None for k, v in update_data.items()},
         )
 
         await self.db.commit()
-        await self.db.refresh(document)
-        return document
+
+        # Re-query with relationships to avoid MissingGreenlet after commit
+        result = await self.db.execute(
+            select(Document)
+            .where(Document.id == document.id)
+            .options(
+                selectinload(Document.study),
+                selectinload(Document.site),
+                selectinload(Document.container).selectinload(Container.location),
+            )
+        )
+        return result.scalar_one()
 
     async def delete_document(
         self, document_id: UUID, user: User

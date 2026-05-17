@@ -3,7 +3,7 @@
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 
 from .base import BaseSchema, IDTimestampSchema
 
@@ -45,7 +45,7 @@ class StorageLocationUpdate(BaseSchema):
     access_restricted: Optional[bool] = None
     capacity_cubic_meters: Optional[float] = Field(default=None, ge=0)
     status: Optional[str] = Field(default=None, pattern="^(ACTIVE|MAINTENANCE|CLOSED)$")
-    metadata: Optional[Dict[str, Any]] = None
+    meta_data: Optional[Dict[str, Any]] = None
 
 
 class StorageLocationChild(BaseSchema):
@@ -69,7 +69,10 @@ class StorageLocationResponse(IDTimestampSchema, StorageLocationBase):
     children: List[StorageLocationChild] = []
     containers_count: int = 0
     items_count: int = 0
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: Optional[Dict[str, Any]] = Field(
+        default=None,
+        validation_alias=AliasChoices("meta_data", "metadata"),
+    )
 
 
 class ContainerBase(BaseSchema):
@@ -103,7 +106,7 @@ class ContainerUpdate(BaseSchema):
     locked: Optional[bool] = None
     barcode: Optional[str] = Field(default=None, max_length=255)
     status: Optional[str] = Field(default=None, pattern="^(ACTIVE|MAINTENANCE|RETIRED)$")
-    metadata: Optional[Dict[str, Any]] = None
+    meta_data: Optional[Dict[str, Any]] = None
 
 
 class ContainerResponse(IDTimestampSchema, ContainerBase):
@@ -114,4 +117,7 @@ class ContainerResponse(IDTimestampSchema, ContainerBase):
     status: str
     current_count: int = 0
     usage_percent: float = 0.0
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: Optional[Dict[str, Any]] = Field(
+        default=None,
+        validation_alias=AliasChoices("meta_data", "metadata"),
+    )

@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Any, Dict, Optional
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 
 from .base import BaseSchema, IDTimestampSchema
 
@@ -28,7 +28,10 @@ class NotificationResponse(IDTimestampSchema, NotificationBase):
     is_read: bool
     read_at: Optional[datetime] = None
     sent_at: datetime
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: Optional[Dict[str, Any]] = Field(
+        default=None,
+        validation_alias=AliasChoices("meta_data", "metadata"),
+    )
 
 
 class NotificationListResponse(BaseSchema):

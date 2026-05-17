@@ -9,9 +9,6 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.gzip import GZipMiddleware
 
-import sys
-sys.path.insert(0, "/home/skamboule/claude-code/urcn-lims/backend")
-
 from common.config import get_settings
 from common.database import init_db, close_db
 from common.middleware import setup_cors, setup_error_handlers
@@ -20,6 +17,7 @@ from common.utils.logger import setup_logging, get_logger
 from .routes import (
     studies, sites, documents, equipment, consumables,
     storage, users, search, movements, access_requests, audit,
+    roles, system_settings,
 )
 
 settings = get_settings()
@@ -64,6 +62,8 @@ app.include_router(search.router, prefix="/api/v1/search", tags=["Search"])
 app.include_router(movements.router, prefix="/api/v1/movements", tags=["Movements"])
 app.include_router(access_requests.router, prefix="/api/v1/access-requests", tags=["Access Requests"])
 app.include_router(audit.router, prefix="/api/v1/audit", tags=["Audit Trail"])
+app.include_router(roles.router, prefix="/api/v1/roles", tags=["Roles"])
+app.include_router(system_settings.router, prefix="/api/v1/system-settings", tags=["System Settings"])
 
 
 @app.get("/health", tags=["Health"])

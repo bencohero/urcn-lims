@@ -7,6 +7,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { AdminSubNav } from '@/components/features/admin/AdminSubNav';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -18,6 +19,20 @@ import { useAuditTrail, useVerifyIntegrity } from '@/hooks/useAuditTrail';
 import { auditTrailApi } from '@/lib/api/auditTrail';
 import { formatDateTime } from '@/lib/utils/utils';
 import type { AuditEntry, AuditTrailFilters, AuditEventType } from '@/types';
+
+const TABLE_NAME_OPTIONS = [
+  { value: '', label: 'Toutes les tables' },
+  { value: 'documents', label: 'Documents' },
+  { value: 'equipment', label: 'Equipements' },
+  { value: 'consumables', label: 'Consommables' },
+  { value: 'access_requests', label: 'Demandes' },
+  { value: 'users', label: 'Utilisateurs' },
+  { value: 'rfid_tags', label: 'Tags RFID' },
+  { value: 'storage_locations', label: 'Emplacements' },
+  { value: 'containers', label: 'Conteneurs' },
+  { value: 'studies', label: 'Etudes' },
+  { value: 'sites', label: 'Sites' },
+];
 
 const EVENT_TYPE_OPTIONS = [
   { value: '', label: 'Tous les types' },
@@ -195,6 +210,7 @@ export default function AuditTrailPage() {
           </div>
         }
       />
+      <AdminSubNav />
 
       {/* Integrity Status */}
       {verifyIntegrity.data && (
@@ -224,7 +240,7 @@ export default function AuditTrailPage() {
       {/* Filters */}
       <Card>
         <div className="p-4">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <Input
               placeholder="Rechercher..."
               iconLeft={<Search className="h-4 w-4" />}
@@ -242,6 +258,14 @@ export default function AuditTrailPage() {
                 }))
               }
               placeholder="Type d'evenement"
+            />
+            <Select
+              options={TABLE_NAME_OPTIONS}
+              value={filters.table_name || ''}
+              onValueChange={(val) =>
+                setFilters((prev) => ({ ...prev, table_name: val || undefined, page: 1 }))
+              }
+              placeholder="Table"
             />
             <Input
               type="date"

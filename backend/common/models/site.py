@@ -95,6 +95,10 @@ class Site(BaseModel):
     )
 
     @property
+    def storage_locations_count(self) -> int:
+        return len(self.storage_locations)
+
+    @property
     def is_active(self) -> bool:
         return self.status == "ACTIVE"
 

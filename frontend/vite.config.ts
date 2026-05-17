@@ -33,7 +33,7 @@ export default defineConfig({
 
       // core-api :8001 — documents, equipment, consumables, studies, sites, users, search, movements, storage
       '/api/v1/documents':           serviceProxy(SERVICES.CORE),
-      '/api/v1/equipment':           serviceProxy(SERVICES.CORE),
+      '/api/v1/equipment':            serviceProxy(SERVICES.CORE),
       '/api/v1/consumables':         serviceProxy(SERVICES.CORE),
       '/api/v1/studies':             serviceProxy(SERVICES.CORE),
       '/api/v1/sites':              serviceProxy(SERVICES.CORE),
@@ -66,7 +66,7 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true,
+    sourcemap: process.env.NODE_ENV !== 'production',
     rollupOptions: {
       output: {
         manualChunks: {

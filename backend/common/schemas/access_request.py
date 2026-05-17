@@ -4,7 +4,7 @@ from datetime import date, datetime
 from typing import Any, Dict, Optional
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 
 from .base import BaseSchema, IDTimestampSchema
 
@@ -65,7 +65,7 @@ class ItemSummary(BaseSchema):
     """Item summary for access request response."""
 
     id: UUID
-    type: str
+    type: str = Field(validation_alias=AliasChoices("item_type", "type"))
     description: Optional[str]
 
 
@@ -73,7 +73,7 @@ class UserSummary(BaseSchema):
     """User summary for access request response."""
 
     id: UUID
-    name: str
+    name: str = Field(validation_alias=AliasChoices("name", "full_name"))
     email: str
 
 
@@ -90,10 +90,16 @@ class AccessRequestResponse(IDTimestampSchema, AccessRequestBase):
     request_number: str
     status: str
     stored_item_id: UUID
-    item: Optional[ItemSummary] = None
+    item: Optional[ItemSummary] = Field(
+        default=None,
+        validation_alias=AliasChoices("stored_item", "item"),
+    )
     requester: UserSummary
     requester_site: SiteSummary
-    reviewed_by: Optional[UserSummary] = None
+    reviewed_by: Optional[UserSummary] = Field(
+        default=None,
+        validation_alias=AliasChoices("reviewer", "reviewed_by"),
+    )
     requested_at: datetime
     reviewed_at: Optional[datetime] = None
     review_notes: Optional[str] = None
@@ -107,4 +113,7 @@ class AccessRequestResponse(IDTimestampSchema, AccessRequestBase):
     hours_pending: float = 0.0
     is_overdue: bool = False
     days_overdue: int = 0
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: Optional[Dict[str, Any]] = Field(
+        default=None,
+        validation_alias=AliasChoices("meta_data", "metadata"),
+    )

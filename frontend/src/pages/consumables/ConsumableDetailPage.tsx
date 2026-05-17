@@ -5,9 +5,14 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Spinner } from '@/components/ui/Spinner';
+import { Modal } from '@/components/ui/Modal';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { useConsumableById } from '@/hooks/useConsumables';
+import { useToast } from '@/components/ui/Toast';
+import { ConsumableForm } from '@/components/features/consumables/ConsumableForm';
+import { useConsumableById, useUpdateConsumable } from '@/hooks/useConsumables';
 import { formatDate } from '@/lib/utils/utils';
+import { useState } from 'react';
+import type { CreateConsumableRequest } from '@/types';
 
 const TYPE_LABELS: Record<string, string> = {
   REAGENT: 'Reactif',
@@ -30,7 +35,24 @@ const UNIT_LABELS: Record<string, string> = {
 export default function ConsumableDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const [showEditModal, setShowEditModal] = useState(false);
+
   const { data: consumable, isLoading } = useConsumableById(id!);
+  const updateConsumable = useUpdateConsumable();
+
+  const handleUpdate = (payload: CreateConsumableRequest) => {
+    updateConsumable.mutate(
+      { id: id!, payload },
+      {
+        onSuccess: () => {
+          toast({ variant: 'success', title: 'Consommable mis a jour' });
+          setShowEditModal(false);
+        },
+        onError: () => toast({ variant: 'error', title: 'Erreur lors de la mise a jour' }),
+      },
+    );
+  };
 
   if (isLoading) {
     return (
@@ -73,7 +95,11 @@ export default function ConsumableDetailPage() {
           <div className="flex items-center gap-2">
             <StatusBadge status={consumable.status} />
             {consumable.hazardous && <Badge variant="danger">Dangereux</Badge>}
-            <Button variant="outline" icon={<Edit2 className="h-4 w-4" />}>
+            <Button
+              variant="outline"
+              icon={<Edit2 className="h-4 w-4" />}
+              onClick={() => setShowEditModal(true)}
+            >
               Modifier
             </Button>
           </div>
@@ -146,6 +172,34 @@ export default function ConsumableDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Edit Modal */}
+      <Modal
+        open={showEditModal}
+        onOpenChange={setShowEditModal}
+        title="Modifier le consommable"
+        description="Mettez a jour les informations du consommable"
+      >
+        <ConsumableForm
+          onSubmit={handleUpdate}
+          onCancel={() => setShowEditModal(false)}
+          loading={updateConsumable.isPending}
+          defaultValues={{
+            consumable_type: consumable.consumable_type,
+            manufacturer: consumable.manufacturer,
+            catalog_number: consumable.catalog_number,
+            lot_number: consumable.lot_number,
+            quantity: consumable.quantity,
+            unit: consumable.unit,
+            expiry_date: consumable.expiry_date,
+            storage_conditions: consumable.storage_conditions,
+            hazardous: consumable.hazardous,
+            hazard_classification: consumable.hazard_classification,
+            internal_code: consumable.internal_code,
+            storage_date: consumable.storage_date,
+          }}
+        />
+      </Modal>
     </div>
   );
 }

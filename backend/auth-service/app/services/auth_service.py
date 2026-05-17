@@ -1,15 +1,13 @@
 """Authentication service."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from uuid import UUID
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, with_loader_criteria
 
-import sys
-sys.path.insert(0, "/home/skamboule/claude-code/urcn-lims/backend")
 
 from common.models import User, SiteUser
 from common.auth.password import hash_password, verify_password, validate_password_strength
@@ -54,6 +52,11 @@ class AuthService:
             .options(
                 selectinload(User.site_users).selectinload(SiteUser.role),
                 selectinload(User.site_users).selectinload(SiteUser.site),
+                with_loader_criteria(
+                    SiteUser,
+                    lambda cls: cls.unassigned_at.is_(None),
+                    include_aliases=True,
+                )
             )
         )
         result = await self.db.execute(query)
@@ -120,6 +123,21 @@ class AuthService:
             user_id=str(user.id),
         )
 
+        sites = [
+        su.site
+        for su in user.site_users
+        if su.site is not None
+        ]
+
+        roles = [
+            su.role
+            for su in user.site_users
+            if su.role is not None
+        ]
+
+        user.__dict__["sites"] = sites
+        user.__dict__["roles"] = roles
+
         return user
 
     async def _handle_failed_login(
@@ -141,7 +159,7 @@ class AuthService:
         attempts = result.scalar_one()
 
         if attempts >= settings.MAX_LOGIN_ATTEMPTS:
-            lockout_until = datetime.utcnow() + timedelta(
+            lockout_until = datetime.now(timezone.utc) + timedelta(
                 minutes=settings.LOCKOUT_DURATION_MINUTES
             )
             await self.db.execute(

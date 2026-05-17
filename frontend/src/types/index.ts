@@ -65,11 +65,14 @@ export interface User {
   last_name: string;
   phone?: string;
   is_active: boolean;
+  is_superuser: boolean;
   mfa_enabled: boolean;
   roles: Role[];
   sites: UserSite[];
   permissions?: Record<string, Record<string, boolean>>;
   last_login?: string;
+  locked_until?: string;
+  failed_login_attempts?: number;
   created_at: string;
   updated_at?: string;
 }
@@ -111,19 +114,19 @@ export interface ResetPasswordRequest {
 
 // --- Study Types ---
 
-export type StudyStatus = 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'TERMINATED';
+export type StudyStatus = 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'TERMINATED' | 'CANCELLED';
 export type StudyPhase = 'Phase I' | 'Phase II' | 'Phase III' | 'Phase IV';
 
 export interface Study {
   id: string;
   protocol_number: string;
   title: string;
-  sponsor: string;
-  phase: StudyPhase;
-  therapeutic_area: string;
-  start_date: string;
-  end_date: string;
-  estimated_enrollment: number;
+  sponsor?: string;
+  phase?: StudyPhase;
+  therapeutic_area?: string;
+  start_date?: string;
+  end_date?: string;
+  estimated_enrollment?: number;
   retention_period_years: number;
   description?: string;
   status: StudyStatus;
@@ -166,6 +169,7 @@ export interface Site {
   activation_date?: string;
   storage_locations_count?: number;
   total_items_stored?: number;
+  principal_investigator_name?: string;
   principal_investigator?: {
     id?: string;
     name: string;
@@ -179,6 +183,7 @@ export interface SiteFilters extends PaginationParams {
   study_id?: string;
   status?: SiteStatus;
   country?: string;
+  search?: string;
 }
 
 // --- Storage Location Types ---
@@ -200,7 +205,7 @@ export interface StorageLocation {
   access_restricted: boolean;
   capacity_cubic_meters?: number;
   current_usage_percent?: number;
-  status: 'ACTIVE' | 'INACTIVE';
+  status: 'ACTIVE' | 'INACTIVE' | 'MAINTENANCE' | 'CLOSED';
   children?: StorageLocation[];
   containers_count?: number;
   items_count?: number;
@@ -230,10 +235,13 @@ export interface Container {
 export type DocumentType = 'CONSENT' | 'CRF' | 'SOURCE_DOC';
 export type DocumentStatus = 'IN_STORAGE' | 'CHECKED_OUT' | 'IN_TRANSIT' | 'ARCHIVED' | 'DESTROYED';
 export type ConfidentialityLevel = 'LOW' | 'MEDIUM' | 'HIGH';
-export type PhysicalCondition = 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR' | 'DAMAGED';
+export type PhysicalCondition = 'GOOD' | 'FAIR' | 'DAMAGED';
 
 export interface Document {
   id: string;
+  study_id: string;
+  site_id: string;
+  container_id?: string;
   study?: { protocol_number: string; title: string };
   site?: { site_number: string; name: string };
   document_type: DocumentType;
@@ -246,8 +254,8 @@ export interface Document {
   signed_date?: string;
   confidentiality_level: ConfidentialityLevel;
   status: DocumentStatus;
-  container?: { name: string; code: string };
-  location?: { name: string; code: string };
+  container?: { id: string; name: string; code: string };
+  location?: { id: string; name: string; code: string };
   rfid_tag?: { epc: string };
   internal_code?: string;
   description?: string;
@@ -286,9 +294,11 @@ export interface CreateDocumentRequest {
 
 export interface UpdateDocumentRequest {
   container_id?: string;
+  description?: string;
   physical_condition?: PhysicalCondition;
   location_notes?: string;
   status?: DocumentStatus;
+  confidentiality_level?: ConfidentialityLevel;
 }
 
 export interface DocumentFilters extends PaginationParams {
@@ -309,6 +319,7 @@ export type EquipmentStatus = 'IN_STORAGE' | 'CHECKED_OUT' | 'IN_TRANSIT';
 
 export interface Equipment {
   id: string;
+  container_id?: string;
   study?: { protocol_number: string; title: string };
   site?: { site_number: string; name: string };
   equipment_type: EquipmentType;
@@ -320,8 +331,8 @@ export interface Equipment {
   next_calibration_date?: string;
   operational_status: OperationalStatus;
   status: EquipmentStatus;
-  container?: { name: string; code: string };
-  location?: { name: string; code: string };
+  container?: { id: string; name: string; code: string };
+  location?: { id: string; name: string; code: string };
   rfid_tag?: { epc: string };
   internal_code?: string;
   description?: string;
@@ -367,6 +378,7 @@ export type ConsumableUnit = 'VIAL' | 'PIECE' | 'BOX' | 'PACK' | 'BOTTLE' | 'KIT
 
 export interface Consumable {
   id: string;
+  container_id?: string;
   study?: { protocol_number: string; title: string };
   site?: { site_number: string; name: string };
   consumable_type: ConsumableType;
@@ -380,8 +392,8 @@ export interface Consumable {
   quantity: number;
   unit: ConsumableUnit;
   status: 'IN_STORAGE' | 'IN_USE' | 'EXPIRED' | 'DISPOSED';
-  container?: { name: string; code: string };
-  location?: { name: string; code: string };
+  container?: { id: string; name: string; code: string };
+  location?: { id: string; name: string; code: string };
   internal_code?: string;
   description?: string;
   storage_date: string;
@@ -418,9 +430,9 @@ export interface ConsumableFilters extends PaginationParams {
 
 // --- Access Request Types ---
 
-export type AccessRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'FULFILLED' | 'RETURNED' | 'OVERDUE';
-export type RequestType = 'CONSULTATION' | 'LOAN' | 'TRANSFER';
-export type Urgency = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+export type AccessRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'FULFILLED' | 'RETURNED' | 'OVERDUE' | 'CANCELLED';
+export type RequestType = 'CONSULTATION' | 'COPY' | 'LOAN';
+export type Urgency = 'LOW' | 'NORMAL' | 'HIGH' | 'CRITICAL';
 
 export interface AccessRequestSummary {
   id: string;
@@ -463,6 +475,7 @@ export interface AccessRequest {
   actual_return_date?: string;
   was_late?: boolean;
   extension_requested?: boolean;
+  extension_approved?: boolean | null;
   extension_days?: number;
   created_at?: string;
   updated_at?: string;

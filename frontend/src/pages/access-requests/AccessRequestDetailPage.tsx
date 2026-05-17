@@ -11,6 +11,7 @@ import {
   Truck,
   RotateCcw,
   AlertTriangle,
+  Clock,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -28,6 +29,9 @@ import {
   useRejectRequest,
   useFulfillRequest,
   useReturnRequest,
+  useExtendRequest,
+  useCancelRequest,
+  useApproveExtension,
 } from '@/hooks/useAccessRequests';
 import { useAuthStore } from '@/store/authStore';
 import { formatDate, formatDateTime } from '@/lib/utils/utils';
@@ -35,13 +39,13 @@ import { cn } from '@/lib/utils/utils';
 
 const REQUEST_TYPE_LABELS: Record<string, string> = {
   CONSULTATION: 'Consultation',
+  COPY: 'Copie',
   LOAN: 'Pret',
-  TRANSFER: 'Transfert',
 };
 
 const URGENCY_LABELS: Record<string, string> = {
   LOW: 'Basse',
-  MEDIUM: 'Moyenne',
+  NORMAL: 'Normale',
   HIGH: 'Haute',
   CRITICAL: 'Critique',
 };
@@ -54,19 +58,27 @@ interface WorkflowStep {
   completed: boolean;
 }
 
-function getWorkflowSteps(ar: { status: string; requested_at: string; reviewed_at?: string; actual_access_date?: string; actual_return_date?: string }): WorkflowStep[] {
+function getWorkflowSteps(ar: {
+  status: string;
+  requested_at: string;
+  reviewed_at?: string;
+  actual_access_date?: string;
+  actual_return_date?: string;
+}): WorkflowStep[] {
   const statuses = ['PENDING', 'APPROVED', 'FULFILLED', 'RETURNED'];
   const labels = ['Demande', 'Approbation', 'Remise', 'Retour'];
   const dates = [ar.requested_at, ar.reviewed_at, ar.actual_access_date, ar.actual_return_date];
 
-  const currentIdx = statuses.indexOf(ar.status);
+  // OVERDUE is a sub-state of FULFILLED for display purposes
+  const displayStatus = ar.status === 'OVERDUE' ? 'FULFILLED' : ar.status;
+  const currentIdx = statuses.indexOf(displayStatus);
 
   return statuses.map((s, i) => ({
     label: labels[i],
     status: s,
     date: dates[i],
     active: i === currentIdx,
-    completed: i < currentIdx || ar.status === 'RETURNED',
+    completed: currentIdx >= 0 ? (i < currentIdx || ar.status === 'RETURNED') : false,
   }));
 }
 
@@ -74,19 +86,27 @@ export default function AccessRequestDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { hasRole } = useAuthStore();
+  const { hasRole, user } = useAuthStore();
 
   const { data: ar, isLoading } = useAccessRequestById(id!);
   const approveRequest = useApproveRequest();
   const rejectRequest = useRejectRequest();
   const fulfillRequest = useFulfillRequest();
   const returnRequest = useReturnRequest();
+  const extendRequest = useExtendRequest();
+  const cancelRequest = useCancelRequest();
+  const approveExtension = useApproveExtension();
 
-  const [modal, setModal] = useState<'approve' | 'reject' | 'fulfill' | 'return' | null>(null);
+  const [modal, setModal] = useState<
+    'approve' | 'reject' | 'fulfill' | 'return' | 'extend' | null
+  >(null);
   const [reviewNotes, setReviewNotes] = useState('');
   const [approvedDays, setApprovedDays] = useState('7');
+  const [extensionDays, setExtensionDays] = useState('7');
+  const [extensionReason, setExtensionReason] = useState('');
 
   const canApprove = hasRole('ADMIN') || hasRole('ARCHIVIST') || hasRole('INVESTIGATOR');
+  const isRequester = ar?.requester?.id === user?.id;
 
   if (isLoading) {
     return (
@@ -110,6 +130,7 @@ export default function AccessRequestDetailPage() {
   const steps = getWorkflowSteps(ar);
   const isOverdue = ar.status === 'OVERDUE';
   const isRejected = ar.status === 'REJECTED';
+  const isCancelled = ar.status === 'CANCELLED';
 
   const handleApprove = () => {
     approveRequest.mutate(
@@ -120,7 +141,7 @@ export default function AccessRequestDetailPage() {
           setModal(null);
           setReviewNotes('');
         },
-        onError: () => toast({ variant: 'error', title: 'Erreur lors de l\'approbation' }),
+        onError: () => toast({ variant: 'error', title: "Erreur lors de l'approbation" }),
       },
     );
   };
@@ -166,6 +187,39 @@ export default function AccessRequestDetailPage() {
     );
   };
 
+  const handleExtend = () => {
+    if (!extensionReason.trim() || extensionReason.trim().length < 10) return;
+    extendRequest.mutate(
+      { id: ar.id, payload: { extension_days: Number(extensionDays), extension_reason: extensionReason } },
+      {
+        onSuccess: () => {
+          toast({ variant: 'success', title: 'Demande de prolongation envoyee' });
+          setModal(null);
+          setExtensionReason('');
+        },
+        onError: () => toast({ variant: 'error', title: 'Erreur lors de la demande de prolongation' }),
+      },
+    );
+  };
+
+  const handleCancel = () => {
+    cancelRequest.mutate(ar.id, {
+      onSuccess: () => {
+        toast({ variant: 'success', title: 'Demande annulee' });
+      },
+      onError: () => toast({ variant: 'error', title: "Erreur lors de l'annulation" }),
+    });
+  };
+
+  const handleApproveExtension = () => {
+    approveExtension.mutate(ar.id, {
+      onSuccess: () => {
+        toast({ variant: 'success', title: 'Prolongation approuvee' });
+      },
+      onError: () => toast({ variant: 'error', title: "Erreur lors de l'approbation de la prolongation" }),
+    });
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
@@ -181,7 +235,7 @@ export default function AccessRequestDetailPage() {
 
       <PageHeader
         title={`Demande ${ar.request_number}`}
-        description={`${REQUEST_TYPE_LABELS[ar.request_type]} - ${ar.item.description}`}
+        description={`${REQUEST_TYPE_LABELS[ar.request_type] ?? ar.request_type} - ${ar.item?.description ?? ''}`}
         actions={
           <div className="flex items-center gap-2">
             <StatusBadge status={ar.status} />
@@ -196,7 +250,7 @@ export default function AccessRequestDetailPage() {
       />
 
       {/* Workflow Timeline */}
-      {!isRejected && (
+      {!isRejected && !isCancelled && (
         <Card>
           <CardContent className="py-6">
             <div className="flex items-center justify-between">
@@ -209,12 +263,16 @@ export default function AccessRequestDetailPage() {
                         step.completed
                           ? 'border-green-500 bg-green-500 text-white'
                           : step.active
-                            ? 'border-primary-500 bg-primary-50 text-primary-700'
+                            ? isOverdue && step.status === 'FULFILLED'
+                              ? 'border-red-500 bg-red-50 text-red-700'
+                              : 'border-primary-500 bg-primary-50 text-primary-700'
                             : 'border-gray-200 bg-white text-gray-400',
                       )}
                     >
                       {step.completed ? (
                         <CheckCircle2 className="h-5 w-5" />
+                      ) : step.active && isOverdue && step.status === 'FULFILLED' ? (
+                        <Clock className="h-5 w-5" />
                       ) : (
                         i + 1
                       )}
@@ -240,46 +298,85 @@ export default function AccessRequestDetailPage() {
       )}
 
       {/* Actions */}
-      {canApprove && (
-        <div className="flex items-center gap-3">
-          {ar.status === 'PENDING' && (
-            <>
-              <Button
-                variant="primary"
-                icon={<CheckCircle2 className="h-4 w-4" />}
-                onClick={() => setModal('approve')}
-              >
-                Approuver
-              </Button>
-              <Button
-                variant="danger"
-                icon={<XCircle className="h-4 w-4" />}
-                onClick={() => setModal('reject')}
-              >
-                Rejeter
-              </Button>
-            </>
-          )}
-          {ar.status === 'APPROVED' && (
+      <div className="flex flex-wrap items-center gap-3">
+        {/* Approve/Reject — admin roles only */}
+        {canApprove && ar.status === 'PENDING' && (
+          <>
             <Button
               variant="primary"
-              icon={<Truck className="h-4 w-4" />}
-              onClick={() => setModal('fulfill')}
+              icon={<CheckCircle2 className="h-4 w-4" />}
+              onClick={() => setModal('approve')}
             >
-              Marquer comme remis
+              Approuver
             </Button>
-          )}
-          {(ar.status === 'FULFILLED' || ar.status === 'OVERDUE') && (
             <Button
-              variant="primary"
-              icon={<RotateCcw className="h-4 w-4" />}
-              onClick={() => setModal('return')}
+              variant="danger"
+              icon={<XCircle className="h-4 w-4" />}
+              onClick={() => setModal('reject')}
             >
-              Enregistrer le retour
+              Rejeter
+            </Button>
+          </>
+        )}
+
+        {/* Fulfill — admin/archivist */}
+        {canApprove && ar.status === 'APPROVED' && (
+          <Button
+            variant="primary"
+            icon={<Truck className="h-4 w-4" />}
+            onClick={() => setModal('fulfill')}
+          >
+            Marquer comme remis
+          </Button>
+        )}
+
+        {/* Return — admin/archivist */}
+        {canApprove && (ar.status === 'FULFILLED' || ar.status === 'OVERDUE') && (
+          <Button
+            variant="primary"
+            icon={<RotateCcw className="h-4 w-4" />}
+            onClick={() => setModal('return')}
+          >
+            Enregistrer le retour
+          </Button>
+        )}
+
+        {/* Request extension — requester when FULFILLED/OVERDUE and no extension pending */}
+        {(ar.status === 'FULFILLED' || ar.status === 'OVERDUE') &&
+          !ar.extension_requested && (
+            <Button
+              variant="outline"
+              icon={<Clock className="h-4 w-4" />}
+              onClick={() => setModal('extend')}
+            >
+              Demander une prolongation
             </Button>
           )}
-        </div>
-      )}
+
+        {/* Approve extension — admin/archivist when extension pending */}
+        {canApprove && ar.extension_requested && ar.extension_approved === null && (
+          <Button
+            variant="primary"
+            icon={<CheckCircle2 className="h-4 w-4" />}
+            onClick={handleApproveExtension}
+            loading={approveExtension.isPending}
+          >
+            Approuver la prolongation ({ar.extension_days} j)
+          </Button>
+        )}
+
+        {/* Cancel — requester when PENDING */}
+        {ar.status === 'PENDING' && (isRequester || canApprove) && (
+          <Button
+            variant="outline"
+            icon={<XCircle className="h-4 w-4" />}
+            onClick={handleCancel}
+            loading={cancelRequest.isPending}
+          >
+            Annuler la demande
+          </Button>
+        )}
+      </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Request Info */}
@@ -288,13 +385,18 @@ export default function AccessRequestDetailPage() {
             <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
               <ClipboardList className="h-4 w-4" />
               Details de la demande
+              {user && (
+                <Badge variant="default" className="ml-auto">
+                  roles: {user.roles.map((r) => r.name).join(', ')}
+                </Badge>
+              )}
             </h3>
           </CardHeader>
           <CardContent>
             <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
               <InfoItem label="N. demande" value={ar.request_number} />
-              <InfoItem label="Type" value={REQUEST_TYPE_LABELS[ar.request_type]} />
-              <InfoItem label="Urgence" value={URGENCY_LABELS[ar.urgency]} />
+              <InfoItem label="Type" value={REQUEST_TYPE_LABELS[ar.request_type] ?? ar.request_type} />
+              <InfoItem label="Urgence" value={URGENCY_LABELS[ar.urgency] ?? ar.urgency} />
               <InfoItem label="Objet" value={ar.purpose} />
               {ar.required_by_date && (
                 <InfoItem label="Requise avant" value={formatDate(ar.required_by_date)} />
@@ -304,6 +406,13 @@ export default function AccessRequestDetailPage() {
               )}
               {ar.expected_return_date && (
                 <InfoItem label="Retour prevu" value={formatDate(ar.expected_return_date)} />
+              )}
+              {ar.extension_requested && (
+                <div className="col-span-2">
+                  <Badge variant={ar.extension_approved ? 'success' : ar.extension_approved === false ? 'danger' : 'orange'}>
+                    Prolongation {ar.extension_approved ? 'approuvee' : ar.extension_approved === false ? 'refusee' : 'en attente'} ({ar.extension_days} j)
+                  </Badge>
+                </div>
               )}
             </dl>
           </CardContent>
@@ -336,9 +445,9 @@ export default function AccessRequestDetailPage() {
           </CardHeader>
           <CardContent>
             <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
-              <InfoItem label="Type" value={ar.item.type} />
-              <InfoItem label="Description" value={ar.item.description} />
-              <InfoItem label="ID" value={ar.item.id.slice(0, 8)} />
+              <InfoItem label="Type" value={ar.item?.type ?? '-'} />
+              <InfoItem label="Description" value={ar.item?.description ?? '-'} />
+              <InfoItem label="ID" value={ar.item?.id?.slice(0, 8) ?? '-'} />
             </dl>
           </CardContent>
         </Card>
@@ -434,7 +543,7 @@ export default function AccessRequestDetailPage() {
             <Textarea
               value={reviewNotes}
               onChange={(e) => setReviewNotes(e.target.value)}
-              placeholder="Indiquez le motif du rejet..."
+              placeholder="Indiquez le motif du rejet (min. 10 caracteres)..."
               rows={3}
             />
           </div>
@@ -444,7 +553,7 @@ export default function AccessRequestDetailPage() {
               variant="danger"
               onClick={handleReject}
               loading={rejectRequest.isPending}
-              disabled={!reviewNotes.trim()}
+              disabled={reviewNotes.trim().length < 10}
             >
               Rejeter
             </Button>
@@ -461,8 +570,9 @@ export default function AccessRequestDetailPage() {
       >
         <div className="space-y-4">
           <p className="text-sm text-gray-600">
-            Confirmez-vous que l'article <span className="font-medium">{ar.item.description}</span> a ete
-            physiquement remis a <span className="font-medium">{ar.requester.name}</span> ?
+            Confirmez-vous que l'article{' '}
+            <span className="font-medium">{ar.item?.description}</span> a ete physiquement remis a{' '}
+            <span className="font-medium">{ar.requester.name}</span> ?
           </p>
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="outline" onClick={() => setModal(null)}>Annuler</Button>
@@ -482,13 +592,53 @@ export default function AccessRequestDetailPage() {
       >
         <div className="space-y-4">
           <p className="text-sm text-gray-600">
-            Confirmez-vous que l'article <span className="font-medium">{ar.item.description}</span> a ete
-            retourne par <span className="font-medium">{ar.requester.name}</span> ?
+            Confirmez-vous que l'article{' '}
+            <span className="font-medium">{ar.item?.description}</span> a ete retourne par{' '}
+            <span className="font-medium">{ar.requester.name}</span> ?
           </p>
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="outline" onClick={() => setModal(null)}>Annuler</Button>
             <Button onClick={handleReturn} loading={returnRequest.isPending}>
               Confirmer le retour
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Extend Modal */}
+      <Modal
+        open={modal === 'extend'}
+        onOpenChange={(open) => !open && setModal(null)}
+        title="Demander une prolongation"
+        description={`Demande ${ar.request_number} — max. 14 jours`}
+      >
+        <div className="space-y-4">
+          <Input
+            label="Nombre de jours supplementaires"
+            type="number"
+            min={1}
+            max={14}
+            value={extensionDays}
+            onChange={(e) => setExtensionDays(e.target.value)}
+            required
+          />
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-gray-700">Motif de la prolongation *</label>
+            <Textarea
+              value={extensionReason}
+              onChange={(e) => setExtensionReason(e.target.value)}
+              placeholder="Justifiez la demande de prolongation (min. 10 caracteres)..."
+              rows={3}
+            />
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="outline" onClick={() => setModal(null)}>Annuler</Button>
+            <Button
+              onClick={handleExtend}
+              loading={extendRequest.isPending}
+              disabled={extensionReason.trim().length < 10}
+            >
+              Envoyer la demande
             </Button>
           </div>
         </div>

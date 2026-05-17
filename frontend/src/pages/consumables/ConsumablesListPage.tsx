@@ -6,12 +6,15 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
+import { Modal } from '@/components/ui/Modal';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Badge } from '@/components/ui/Badge';
-import { useConsumables } from '@/hooks/useConsumables';
+import { useToast } from '@/components/ui/Toast';
+import { ConsumableForm } from '@/components/features/consumables/ConsumableForm';
+import { useConsumables, useCreateConsumable } from '@/hooks/useConsumables';
 import { formatDate } from '@/lib/utils/utils';
-import type { Consumable, ConsumableFilters, ConsumableType } from '@/types';
+import type { Consumable, ConsumableFilters, ConsumableType, CreateConsumableRequest } from '@/types';
 
 const TYPE_OPTIONS = [
   { value: '', label: 'Tous les types' },
@@ -116,12 +119,15 @@ const columns: Column<Consumable>[] = [
 
 export default function ConsumablesListPage() {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [filters, setFilters] = useState<ConsumableFilters>({
     page: 1,
     page_size: 25,
   });
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   const { data, isLoading } = useConsumables(filters);
+  const createConsumable = useCreateConsumable();
 
   const handleSort = (key: string) => {
     setFilters((prev) => ({
@@ -131,13 +137,23 @@ export default function ConsumablesListPage() {
     }));
   };
 
+  const handleCreate = (payload: CreateConsumableRequest) => {
+    createConsumable.mutate(payload, {
+      onSuccess: () => {
+        toast({ variant: 'success', title: 'Consommable enregistre' });
+        setShowCreateModal(false);
+      },
+      onError: () => toast({ variant: 'error', title: "Erreur lors de l'enregistrement" }),
+    });
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="Consommables"
         description="Gestion des consommables de laboratoire"
         actions={
-          <Button icon={<Plus className="h-4 w-4" />}>
+          <Button icon={<Plus className="h-4 w-4" />} onClick={() => setShowCreateModal(true)}>
             Nouveau consommable
           </Button>
         }
@@ -200,6 +216,20 @@ export default function ConsumablesListPage() {
           emptyDescription="Aucun consommable ne correspond aux filtres"
         />
       </Card>
+
+      {/* Create Modal */}
+      <Modal
+        open={showCreateModal}
+        onOpenChange={setShowCreateModal}
+        title="Enregistrer un consommable"
+        description="Ajoutez un nouveau consommable au systeme"
+      >
+        <ConsumableForm
+          onSubmit={handleCreate}
+          onCancel={() => setShowCreateModal(false)}
+          loading={createConsumable.isPending}
+        />
+      </Modal>
     </div>
   );
 }

@@ -6,6 +6,7 @@ import {
   Plus,
   Radio,
   CheckCircle2,
+  Package,
 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Card, CardContent, CardHeader } from '@/components/ui/Card';
@@ -18,7 +19,9 @@ import { Modal } from '@/components/ui/Modal';
 import { Tabs, TabContent } from '@/components/ui/Tabs';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { useToast } from '@/components/ui/Toast';
+import { BulkInventory } from '@/components/features/rfid/BulkInventory';
 import { useRFIDTags, useReadTag, useEncodeTag } from '@/hooks/useRFID';
+import { rfidApi } from '@/lib/api/rfid';
 import { formatDate, formatDateTime } from '@/lib/utils/utils';
 import type { RFIDTag, RFIDFilters, ReadTagResponse } from '@/types';
 
@@ -74,6 +77,13 @@ const columns: Column<RFIDTag>[] = [
   },
 ];
 
+// Placeholder locations — in production these would come from the storage locations API
+const DEMO_LOCATIONS = [
+  { value: 'loc-1', label: 'Site A - Salle de stockage principale' },
+  { value: 'loc-2', label: 'Site A - Archive temperature controlee' },
+  { value: 'loc-3', label: 'Site B - Laboratoire' },
+];
+
 export default function RFIDPage() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('tags');
@@ -115,14 +125,32 @@ export default function RFIDPage() {
           setShowEncodeModal(false);
           setEncodeItemId('');
         },
-        onError: () => toast({ variant: 'error', title: 'Erreur lors de l\'encodage' }),
+        onError: () => toast({ variant: 'error', title: "Erreur lors de l'encodage" }),
       },
     );
+  };
+
+  const handleInventoryScan = async (locationId: string) => {
+    const report = await rfidApi.getInventoryReport({ location_id: locationId });
+    return {
+      total_expected: report.total_expected,
+      total_found: report.total_found,
+      missing: report.items
+        .filter((i) => i.status === 'MISSING')
+        .map((i) => ({ id: i.item_id, description: i.description, epc: i.epc })),
+      unknown: report.items
+        .filter((i) => i.status === 'UNEXPECTED')
+        .map((i) => ({ epc: i.epc })),
+      read_rate: report.total_expected > 0
+        ? (report.total_found / report.total_expected) * 100
+        : 0,
+    };
   };
 
   const tabs = [
     { value: 'tags', label: 'Tags RFID' },
     { value: 'scan', label: 'Scanner' },
+    { value: 'inventory', label: 'Inventaire', icon: <Package className="h-3.5 w-3.5" /> },
   ];
 
   return (
@@ -292,6 +320,33 @@ export default function RFIDPage() {
               </CardContent>
             </Card>
           )}
+        </TabContent>
+
+        {/* Inventory Tab */}
+        <TabContent value="inventory" className="mt-6">
+          <BulkInventory
+            locations={DEMO_LOCATIONS}
+            onStartScan={handleInventoryScan}
+            onExportReport={(result) => {
+              const lines = [
+                `Inventaire RFID - ${new Date().toLocaleDateString('fr-FR')}`,
+                `Detectes: ${result.total_found} / ${result.total_expected} (${result.read_rate.toFixed(1)}%)`,
+                '',
+                'Articles manquants:',
+                ...result.missing.map((i) => `  - ${i.description} (${i.epc})`),
+                '',
+                'Tags inconnus:',
+                ...result.unknown.map((i) => `  - ${i.epc}`),
+              ];
+              const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `inventaire-rfid-${Date.now()}.txt`;
+              a.click();
+              URL.revokeObjectURL(url);
+            }}
+          />
         </TabContent>
       </Tabs>
 

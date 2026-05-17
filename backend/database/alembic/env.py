@@ -1,6 +1,7 @@
 """Alembic environment configuration for async migrations."""
 
 import asyncio
+import os
 import sys
 from logging.config import fileConfig
 
@@ -9,8 +10,9 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import create_async_engine
 
-# Add backend to path for imports
-sys.path.insert(0, "/home/skamboule/claude-code/urcn-lims/backend")
+# Add backend/ to path: env.py is at database/alembic/env.py → go up 3 levels
+backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, backend_dir)
 
 from common.config import get_settings
 from common.database.base import Base

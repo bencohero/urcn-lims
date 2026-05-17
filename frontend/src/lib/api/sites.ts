@@ -20,10 +20,7 @@ export interface CreateSiteRequest {
   has_offline_capability: boolean;
   timezone?: string;
   activation_date?: string;
-  principal_investigator?: {
-    name: string;
-    email?: string;
-  };
+  principal_investigator_id?: string;
 }
 
 export interface UpdateSiteRequest {
@@ -37,10 +34,7 @@ export interface UpdateSiteRequest {
   status?: Site['status'];
   has_offline_capability?: boolean;
   timezone?: string;
-  principal_investigator?: {
-    name: string;
-    email?: string;
-  };
+  principal_investigator_id?: string | null;
 }
 
 export interface SiteCapacity {
@@ -57,6 +51,12 @@ export interface SiteCapacity {
     current_usage_percent: number;
     status: string;
   }>;
+}
+
+export interface SiteMember {
+  id: string;
+  name: string;
+  email: string;
 }
 
 export const sitesApi = {
@@ -105,6 +105,13 @@ export const sitesApi = {
   getCapacity: async (id: string) => {
     const { data } = await apiClient.get<ApiResponse<SiteCapacity>>(
       `/sites/${id}/capacity`,
+    );
+    return data.data;
+  },
+
+  getMembers: async (id: string) => {
+    const { data } = await apiClient.get<ApiResponse<SiteMember[]>>(
+      `/sites/${id}/members`,
     );
     return data.data;
   },

@@ -7,13 +7,13 @@ interface RoleRouteProps {
 }
 
 export function RoleRoute({ allowedRoles }: RoleRouteProps) {
-  const { user } = useAuthStore();
+  const { user, isSuperUser } = useAuthStore();
 
   const hasAccess = user?.roles?.some((role) =>
     allowedRoles.includes(role.code),
   );
 
-  if (!hasAccess) {
+  if (!hasAccess && !isSuperUser()) {
     return <Navigate to="/dashboard" replace />;
   }
 

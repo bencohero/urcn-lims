@@ -8,12 +8,10 @@ from pydantic import BaseModel as PydanticBaseModel
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import sys
-sys.path.insert(0, "/home/skamboule/claude-code/urcn-lims/backend")
 
 from common.database import get_db
 from common.models import User
-from common.schemas.user import UserCreate, UserResponse, UserUpdate
+from common.schemas.user import UserCreate, UserResponse, UserUpdate, AdminResetPasswordRequest, SiteRoleAssignmentResponse, SiteSummary
 from common.schemas.response import APIResponse, PaginatedResponse
 from common.auth.dependencies import get_current_user, require_permission, require_role
 
@@ -49,6 +47,17 @@ async def get_current_user_profile(
         success=True,
         data=UserResponse.model_validate(user),
     )
+
+
+@router.get("/me/sites", response_model=APIResponse[list[SiteSummary]])
+async def get_current_user_sites(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get the list of sites where the authenticated user has an active assignment."""
+    service = UserService(db)
+    sites = await service.get_user_active_sites(current_user.id)
+    return APIResponse(success=True, data=sites)
 
 
 @router.get("", response_model=PaginatedResponse)
@@ -153,6 +162,73 @@ async def deactivate_user(
         data=UserResponse.model_validate(user),
         message="User deactivated successfully",
     )
+
+
+@router.post("/{user_id}/activate", response_model=APIResponse[UserResponse])
+async def activate_user(
+    user_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role("ADMIN")),
+):
+    """Reactivate a deactivated user (admin only)."""
+    service = UserService(db)
+    user = await service.activate_user(user_id, current_user)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    return APIResponse(
+        success=True,
+        data=UserResponse.model_validate(user),
+        message="User activated successfully",
+    )
+
+
+@router.post("/{user_id}/unlock", response_model=APIResponse[UserResponse])
+async def unlock_user(
+    user_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role("ADMIN")),
+):
+    """Unlock a locked user account (admin only)."""
+    service = UserService(db)
+    user = await service.unlock_user(user_id, current_user)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    return APIResponse(
+        success=True,
+        data=UserResponse.model_validate(user),
+        message="User account unlocked successfully",
+    )
+
+
+@router.post("/{user_id}/reset-password", response_model=APIResponse[UserResponse])
+async def admin_reset_password(
+    user_id: UUID,
+    payload: AdminResetPasswordRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role("ADMIN")),
+):
+    """Force-reset a user's password (admin only)."""
+    service = UserService(db)
+    user = await service.admin_reset_password(user_id, payload.new_password, current_user)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    return APIResponse(
+        success=True,
+        data=UserResponse.model_validate(user),
+        message="Password reset successfully",
+    )
+
+
+@router.get("/{user_id}/site-roles", response_model=APIResponse[list[SiteRoleAssignmentResponse]])
+async def get_user_site_roles(
+    user_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role("ADMIN")),
+):
+    """List all site role assignments for a user (admin only)."""
+    service = UserService(db)
+    assignments = await service.get_user_site_roles(user_id)
+    return APIResponse(success=True, data=assignments)
 
 
 @router.post("/{user_id}/site-roles", response_model=APIResponse, status_code=status.HTTP_201_CREATED)

@@ -110,6 +110,10 @@ class StoredItem(BaseModel):
     )
 
     @property
+    def location(self):
+        return self.container.location if self.container else None
+
+    @property
     def is_available(self) -> bool:
         return self.status == "IN_STORAGE"
 

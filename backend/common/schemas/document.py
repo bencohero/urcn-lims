@@ -4,7 +4,7 @@ from datetime import date
 from typing import Any, Dict, Optional
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 
 from .base import BaseSchema, IDTimestampSchema
 
@@ -59,10 +59,13 @@ class DocumentUpdate(BaseSchema):
         default=None, pattern="^(GOOD|FAIR|DAMAGED)$"
     )
     location_notes: Optional[str] = None
+    status: Optional[str] = Field(
+        default=None, pattern="^(IN_STORAGE|CHECKED_OUT|IN_TRANSIT|ARCHIVED|DESTROYED)$"
+    )
     confidentiality_level: Optional[str] = Field(
         default=None, pattern="^(LOW|MEDIUM|HIGH|CRITICAL)$"
     )
-    metadata: Optional[Dict[str, Any]] = None
+    document_metadata: Optional[Dict[str, Any]] = None
 
 
 class StudySummary(BaseSchema):
@@ -82,6 +85,7 @@ class SiteSummary(BaseSchema):
 class ContainerSummary(BaseSchema):
     """Container summary for responses."""
 
+    id: UUID
     name: str
     code: Optional[str] = None
 
@@ -89,6 +93,7 @@ class ContainerSummary(BaseSchema):
 class LocationSummary(BaseSchema):
     """Location summary for responses."""
 
+    id: UUID
     name: str
     code: Optional[str] = None
 
@@ -102,16 +107,23 @@ class RFIDTagSummary(BaseSchema):
 class DocumentResponse(IDTimestampSchema, DocumentBase):
     """Document response schema."""
 
-    stored_item_id: UUID
+    stored_item_id: UUID = Field(validation_alias=AliasChoices("id", "stored_item_id"))
+    study_id: UUID
+    site_id: UUID
+    container_id: Optional[UUID] = None
     status: str
     storage_date: date
     expected_retention_until: Optional[date] = None
     internal_code: Optional[str] = None
     description: Optional[str] = None
     physical_condition: str
+    location_notes: Optional[str] = None
     study: Optional[StudySummary] = None
     site: Optional[SiteSummary] = None
     container: Optional[ContainerSummary] = None
     location: Optional[LocationSummary] = None
     rfid_tag: Optional[RFIDTagSummary] = None
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: Optional[Dict[str, Any]] = Field(
+        default=None,
+        validation_alias=AliasChoices("document_metadata", "metadata"),
+    )
