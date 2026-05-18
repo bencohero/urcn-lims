@@ -113,20 +113,30 @@ class ExcelGenerator:
         ws["A1"].font = Font(bold=True, size=16)
         ws["A2"] = f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
 
-        headers = ["Date", "Type", "Item ID", "Reason", "Performed By", "Notes"]
+        headers = ["Date", "Type", "Article", "Depuis", "Vers", "Motif", "Effectue par", "Notes"]
         for col, header in enumerate(headers, 1):
             cell = ws.cell(row=4, column=col, value=header)
             self._apply_header_style(cell)
 
         for row, mov in enumerate(movements, 5):
+            item_code = (
+                mov.stored_item.internal_code
+                if mov.stored_item and mov.stored_item.internal_code
+                else str(mov.stored_item_id)
+            )
+            from_loc = mov.from_location.name if mov.from_location else ""
+            to_loc = mov.to_location.name if mov.to_location else ""
+            performer = mov.performer.full_name if mov.performer else str(mov.performed_by)
             ws.cell(row=row, column=1, value=mov.movement_date.strftime("%Y-%m-%d %H:%M") if mov.movement_date else "")
             ws.cell(row=row, column=2, value=mov.movement_type)
-            ws.cell(row=row, column=3, value=str(mov.stored_item_id) if mov.stored_item_id else "")
-            ws.cell(row=row, column=4, value=mov.reason or "")
-            ws.cell(row=row, column=5, value=str(mov.performed_by) if mov.performed_by else "")
-            ws.cell(row=row, column=6, value=mov.notes or "")
+            ws.cell(row=row, column=3, value=item_code)
+            ws.cell(row=row, column=4, value=from_loc)
+            ws.cell(row=row, column=5, value=to_loc)
+            ws.cell(row=row, column=6, value=mov.reason or "")
+            ws.cell(row=row, column=7, value=performer)
+            ws.cell(row=row, column=8, value=mov.notes or "")
 
-            for col in range(1, 7):
+            for col in range(1, 9):
                 self._apply_cell_style(ws.cell(row=row, column=col))
 
         self._auto_adjust_columns(ws)

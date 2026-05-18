@@ -7,9 +7,6 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-import sys
-sys.path.insert(0, "/home/skamboule/claude-code/urcn-lims/backend")
-
 from common.models import Container, Site, SiteUser, StorageLocation, StoredItem, User
 from common.schemas.site import SiteCreate, SiteUpdate
 from common.auth.permissions import PermissionChecker

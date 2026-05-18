@@ -6,13 +6,11 @@ from uuid import UUID
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, with_loader_criteria
 
-import sys
-sys.path.insert(0, "/home/skamboule/claude-code/urcn-lims/backend")
-
-from common.models import Study, StoredItem, User
+from common.models import Site, Study, StoredItem, User
 from common.schemas.study import StudyCreate, StudyUpdate
+from common.auth.permissions import PermissionChecker
 
 from .audit_service import AuditService
 
@@ -23,6 +21,14 @@ class StudyService:
     def __init__(self, db: AsyncSession):
         self.db = db
         self.audit_service = AuditService(db)
+
+    def _sites_loader(self, user: User):
+        """Return a selectinload for Study.sites, filtered by RLS for non-superusers."""
+        loader = selectinload(Study.sites)
+        if user and not user.is_superuser:
+            checker = PermissionChecker(user)
+            return loader, with_loader_criteria(Site, Site.id.in_(list(checker.site_ids)))
+        return loader, None
 
     async def get_studies(
         self,
@@ -35,7 +41,11 @@ class StudyService:
         user: User = None,
     ) -> Tuple[List[Study], int]:
         """Get studies with filters and pagination."""
-        query = select(Study).options(selectinload(Study.sites))
+        sites_loader, sites_criteria = self._sites_loader(user)
+        opts = [sites_loader]
+        if sites_criteria:
+            opts.append(sites_criteria)
+        query = select(Study).options(*opts)
 
         filters = []
         if status:
@@ -77,10 +87,14 @@ class StudyService:
 
     async def get_study_by_id(self, study_id: UUID, user: User) -> Optional[Study]:
         """Get study by ID with statistics."""
+        sites_loader, sites_criteria = self._sites_loader(user)
+        opts = [sites_loader]
+        if sites_criteria:
+            opts.append(sites_criteria)
         query = (
             select(Study)
             .where(Study.id == study_id)
-            .options(selectinload(Study.sites))
+            .options(*opts)
         )
         result = await self.db.execute(query)
         study = result.scalar_one_or_none()

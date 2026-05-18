@@ -4,8 +4,7 @@ import { reportsApi } from '@/lib/api/reports';
 export function useDashboardStatistics(params?: {
   study_id?: string;
   site_id?: string;
-  from_date?: string;
-  to_date?: string;
+  period?: 'day' | 'week' | 'month' | 'year';
 }) {
   return useQuery({
     queryKey: ['dashboard', 'statistics', params],

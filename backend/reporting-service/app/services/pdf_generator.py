@@ -134,15 +134,27 @@ class PDFGenerator:
         elements.append(Spacer(1, 20))
 
         if movements:
-            table_data = [["Date", "Type", "Item", "From", "To", "Performed By"]]
+            table_data = [["Date", "Type", "Article", "Depuis", "Vers", "Effectue par"]]
             for mov in movements[:100]:
+                item_code = (
+                    mov.stored_item.internal_code
+                    if mov.stored_item and mov.stored_item.internal_code
+                    else str(mov.stored_item_id)[:8]
+                )
+                from_loc = mov.from_location.name if mov.from_location else "-"
+                to_loc = mov.to_location.name if mov.to_location else "-"
+                performer = (
+                    mov.performer.full_name
+                    if mov.performer
+                    else str(mov.performed_by)[:8]
+                )
                 table_data.append([
                     mov.movement_date.strftime("%Y-%m-%d %H:%M") if mov.movement_date else "-",
                     mov.movement_type,
-                    str(mov.stored_item_id)[:8] if mov.stored_item_id else "-",
-                    "-",
-                    "-",
-                    str(mov.performed_by)[:8] if mov.performed_by else "-",
+                    item_code,
+                    from_loc,
+                    to_loc,
+                    performer,
                 ])
 
             table = Table(table_data)

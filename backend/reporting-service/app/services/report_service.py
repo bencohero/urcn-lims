@@ -7,13 +7,11 @@ from uuid import UUID
 
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-
-import sys
-sys.path.insert(0, "/home/skamboule/claude-code/urcn-lims/backend")
+from sqlalchemy.orm import selectinload
 
 from common.models import (
     StoredItem, Document, Equipment, Consumable,
-    Movement, AccessRequest, AuditTrail, User
+    Movement, AccessRequest, AuditTrail, User,
 )
 from common.auth.permissions import PermissionChecker
 from common.utils.logger import get_logger
@@ -38,6 +36,18 @@ class ReportService:
         self.pdf_generator = PDFGenerator()
         self.excel_generator = ExcelGenerator()
 
+    def _item_site_filter(self, user: User, study_id: Optional[UUID] = None, site_id: Optional[UUID] = None):
+        """Build a subquery filter for StoredItem access (site RLS + study/site params)."""
+        item_filters = []
+        if study_id:
+            item_filters.append(StoredItem.study_id == study_id)
+        if site_id:
+            item_filters.append(StoredItem.site_id == site_id)
+        if not user.is_superuser:
+            checker = PermissionChecker(user)
+            item_filters.append(StoredItem.site_id.in_(checker.site_ids))
+        return item_filters
+
     async def generate_inventory_report(
         self,
         study_id: Optional[UUID],
@@ -47,28 +57,19 @@ class ReportService:
         user: User,
     ) -> Tuple[io.BytesIO, str, str]:
         """Generate inventory report."""
-        # Get inventory data
-        query = select(StoredItem).where(
+        query = select(StoredItem).options(
+            selectinload(StoredItem.container)
+        ).where(
             StoredItem.status.in_(["IN_STORAGE", "IN_USE"])
         )
 
-        filters = []
-        if study_id:
-            filters.append(StoredItem.study_id == study_id)
-        if site_id:
-            filters.append(StoredItem.site_id == site_id)
-
-        if not user.is_superuser:
-            checker = PermissionChecker(user)
-            filters.append(StoredItem.site_id.in_(checker.site_ids))
-
+        filters = self._item_site_filter(user, study_id, site_id)
         if filters:
             query = query.where(and_(*filters))
 
         result = await self.db.execute(query)
         items = result.scalars().all()
 
-        # Generate report
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"inventory_report_{timestamp}"
 
@@ -101,13 +102,23 @@ class ReportService:
         user: User,
     ) -> Tuple[io.BytesIO, str, str]:
         """Generate movements report."""
-        query = select(Movement)
+        query = select(Movement).options(
+            selectinload(Movement.stored_item),
+            selectinload(Movement.performer),
+            selectinload(Movement.from_location),
+            selectinload(Movement.to_location),
+        )
 
         filters = []
         if from_date:
             filters.append(Movement.movement_date >= datetime.fromisoformat(from_date))
         if to_date:
             filters.append(Movement.movement_date <= datetime.fromisoformat(to_date))
+
+        item_filters = self._item_site_filter(user, study_id, site_id)
+        if item_filters:
+            accessible_items = select(StoredItem.id).where(and_(*item_filters))
+            filters.append(Movement.stored_item_id.in_(accessible_items))
 
         if filters:
             query = query.where(and_(*filters))
@@ -156,6 +167,10 @@ class ReportService:
             filters.append(AccessRequest.requested_at >= datetime.fromisoformat(from_date))
         if to_date:
             filters.append(AccessRequest.requested_at <= datetime.fromisoformat(to_date))
+
+        if not user.is_superuser:
+            checker = PermissionChecker(user)
+            filters.append(AccessRequest.requester_site_id.in_(checker.site_ids))
 
         if filters:
             query = query.where(and_(*filters))
@@ -245,7 +260,6 @@ class ReportService:
         user: User,
     ) -> Dict[str, Any]:
         """Get dashboard statistics."""
-        # Calculate period
         now = datetime.now()
         if period == "day":
             start_date = now - timedelta(days=1)
@@ -256,16 +270,7 @@ class ReportService:
         else:
             start_date = now - timedelta(days=365)
 
-        # Build base filter
-        base_filters = []
-        if study_id:
-            base_filters.append(StoredItem.study_id == study_id)
-        if site_id:
-            base_filters.append(StoredItem.site_id == site_id)
-
-        if not user.is_superuser:
-            checker = PermissionChecker(user)
-            base_filters.append(StoredItem.site_id.in_(checker.site_ids))
+        item_filters = self._item_site_filter(user, study_id, site_id)
 
         # Inventory stats
         inventory_query = select(
@@ -273,8 +278,8 @@ class ReportService:
             func.count(StoredItem.id).label("count")
         ).group_by(StoredItem.item_type)
 
-        if base_filters:
-            inventory_query = inventory_query.where(and_(*base_filters))
+        if item_filters:
+            inventory_query = inventory_query.where(and_(*item_filters))
 
         inventory_result = await self.db.execute(inventory_query)
         inventory_by_type = dict(inventory_result.all())
@@ -283,14 +288,30 @@ class ReportService:
         total_equipment = inventory_by_type.get("EQUIPMENT", 0)
         total_consumables = inventory_by_type.get("CONSUMABLE", 0)
 
+        # Movement stats in period
+        mov_query = select(
+            Movement.movement_type, func.count(Movement.id).label("count")
+        ).where(Movement.movement_date >= start_date)
+
+        if item_filters:
+            accessible_items = select(StoredItem.id).where(and_(*item_filters))
+            mov_query = mov_query.where(Movement.stored_item_id.in_(accessible_items))
+
+        mov_query = mov_query.group_by(Movement.movement_type)
+        mov_result = await self.db.execute(mov_query)
+        mov_by_type = dict(mov_result.all())
+
         # Access request stats
         ar_query = select(
             AccessRequest.status,
             func.count(AccessRequest.id).label("count")
-        ).where(
-            AccessRequest.requested_at >= start_date
-        ).group_by(AccessRequest.status)
+        ).where(AccessRequest.requested_at >= start_date)
 
+        if not user.is_superuser:
+            checker = PermissionChecker(user)
+            ar_query = ar_query.where(AccessRequest.requester_site_id.in_(checker.site_ids))
+
+        ar_query = ar_query.group_by(AccessRequest.status)
         ar_result = await self.db.execute(ar_query)
         ar_by_status = dict(ar_result.all())
 
@@ -302,8 +323,17 @@ class ReportService:
                 AccessRequest.actual_return_date.is_(None),
             )
         )
+        if not user.is_superuser:
+            checker = PermissionChecker(user)
+            overdue_query = overdue_query.where(
+                AccessRequest.requester_site_id.in_(checker.site_ids)
+            )
         overdue_result = await self.db.execute(overdue_query)
         overdue_count = overdue_result.scalar()
+
+        entries = mov_by_type.get("IN", 0)
+        exits = mov_by_type.get("OUT", 0) + mov_by_type.get("TRANSFER", 0)
+        returns = mov_by_type.get("RETURN", 0)
 
         return {
             "period": {
@@ -315,6 +345,12 @@ class ReportService:
                 "total_equipment": total_equipment,
                 "total_consumables": total_consumables,
                 "total_items": total_documents + total_equipment + total_consumables,
+            },
+            "movements": {
+                "entries": entries,
+                "exits": exits,
+                "returns": returns,
+                "net_change": entries - exits,
             },
             "access_requests": {
                 "total": sum(ar_by_status.values()),

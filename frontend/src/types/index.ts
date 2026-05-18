@@ -656,7 +656,7 @@ export interface DashboardStatistics {
     total_consumables: number;
     total_items: number;
   };
-  movements: {
+  movements?: {
     entries: number;
     exits: number;
     returns: number;
@@ -669,17 +669,17 @@ export interface DashboardStatistics {
     rejected: number;
     fulfilled: number;
     overdue: number;
-    average_approval_time_hours: number;
+    average_approval_time_hours?: number;
   };
-  storage_capacity: {
+  storage_capacity?: {
     total_capacity: number;
     current_usage: number;
     usage_percent: number;
     locations_above_90_percent: number;
   };
   alerts: {
-    calibration_due_soon: number;
-    items_expiring_30_days: number;
+    calibration_due_soon?: number;
+    items_expiring_30_days?: number;
     overdue_returns: number;
   };
 }
