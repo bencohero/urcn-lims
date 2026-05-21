@@ -232,10 +232,18 @@ export interface Container {
 
 // --- Document Types ---
 
-export type DocumentType = 'CONSENT' | 'CRF' | 'SOURCE_DOC';
+export type DocumentType = 'CONSENT' | 'CRF' | 'SOURCE_DOC' | 'LAB_REPORT' | 'OTHER';
 export type DocumentStatus = 'IN_STORAGE' | 'CHECKED_OUT' | 'IN_TRANSIT' | 'ARCHIVED' | 'DESTROYED';
-export type ConfidentialityLevel = 'LOW' | 'MEDIUM' | 'HIGH';
+export type ConfidentialityLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 export type PhysicalCondition = 'GOOD' | 'FAIR' | 'DAMAGED';
+
+export interface DocumentMovementSummary {
+  id: string;
+  movement_type: string;
+  movement_date: string;
+  reason?: string;
+  notes?: string;
+}
 
 export interface Document {
   id: string;
@@ -244,27 +252,28 @@ export interface Document {
   container_id?: string;
   study?: { protocol_number: string; title: string };
   site?: { site_number: string; name: string };
-  document_type: DocumentType;
-  subject_id: string;
-  visit_number: string;
-  form_name: string;
-  version: string;
-  page_count: number;
+  document_type: string;
+  subject_id?: string | null;
+  visit_number?: string | null;
+  form_name?: string | null;
+  version?: string | null;
+  page_count?: number | null;
   signature_required: boolean;
-  signed_date?: string;
-  confidentiality_level: ConfidentialityLevel;
+  signed_date?: string | null;
+  confidentiality_level: string;
+  retention_category?: string | null;
   status: DocumentStatus;
-  container?: { id: string; name: string; code: string };
-  location?: { id: string; name: string; code: string };
+  container?: { id: string; name: string; code?: string };
+  location?: { id: string; name: string; code?: string };
   rfid_tag?: { epc: string };
   internal_code?: string;
   description?: string;
   quantity?: number;
   storage_date: string;
-  expected_retention_until: string;
+  expected_retention_until?: string | null;
   physical_condition?: PhysicalCondition;
   location_notes?: string;
-  movements?: Movement[];
+  movements?: DocumentMovementSummary[];
   access_requests?: AccessRequestSummary[];
   created_at: string;
   updated_at?: string;
@@ -273,23 +282,23 @@ export interface Document {
 export interface CreateDocumentRequest {
   study_id: string;
   site_id: string;
-  container_id: string;
-  document_type: DocumentType;
-  subject_id: string;
-  visit_number: string;
-  form_name: string;
-  version: string;
-  page_count: number;
+  container_id?: string;
+  document_type: string;
+  subject_id?: string;
+  visit_number?: string;
+  form_name?: string;
+  version?: string;
+  page_count?: number;
   signature_required: boolean;
   signed_date?: string;
   confidentiality_level: ConfidentialityLevel;
   internal_code?: string;
   description?: string;
-  quantity?: number;
   storage_date: string;
-  expected_retention_until: string;
+  expected_retention_until?: string;
   physical_condition?: PhysicalCondition;
   location_notes?: string;
+  retention_category?: string;
 }
 
 export interface UpdateDocumentRequest {
@@ -299,6 +308,14 @@ export interface UpdateDocumentRequest {
   location_notes?: string;
   status?: DocumentStatus;
   confidentiality_level?: ConfidentialityLevel;
+  subject_id?: string;
+  visit_number?: string;
+  form_name?: string;
+  version?: string;
+  page_count?: number;
+  signature_required?: boolean;
+  signed_date?: string;
+  retention_category?: string;
 }
 
 export interface DocumentFilters extends PaginationParams {

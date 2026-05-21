@@ -7,7 +7,6 @@ import type {
   UpdateDocumentRequest,
   DocumentFilters,
   AuditEntry,
-  Movement,
 } from '@/types';
 
 export const documentsApi = {
@@ -53,10 +52,4 @@ export const documentsApi = {
     return data.data;
   },
 
-  getMovements: async (id: string) => {
-    const { data } = await apiClient.get<ApiResponse<Movement[]>>(
-      `/documents/${id}/movements`,
-    );
-    return data.data;
-  },
 };

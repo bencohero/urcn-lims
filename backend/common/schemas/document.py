@@ -1,7 +1,7 @@
 """Document schemas."""
 
-from datetime import date
-from typing import Any, Dict, Optional
+from datetime import date, datetime
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from pydantic import AliasChoices, Field
@@ -53,6 +53,7 @@ class DocumentCreate(StoredItemBase, DocumentBase):
 class DocumentUpdate(BaseSchema):
     """Schema for updating a document."""
 
+    # StoredItem fields
     container_id: Optional[UUID] = None
     description: Optional[str] = None
     physical_condition: Optional[str] = Field(
@@ -62,9 +63,18 @@ class DocumentUpdate(BaseSchema):
     status: Optional[str] = Field(
         default=None, pattern="^(IN_STORAGE|CHECKED_OUT|IN_TRANSIT|ARCHIVED|DESTROYED)$"
     )
+    # Document-specific fields
     confidentiality_level: Optional[str] = Field(
         default=None, pattern="^(LOW|MEDIUM|HIGH|CRITICAL)$"
     )
+    subject_id: Optional[str] = Field(default=None, max_length=100)
+    visit_number: Optional[str] = Field(default=None, max_length=50)
+    form_name: Optional[str] = Field(default=None, max_length=255)
+    version: Optional[str] = Field(default=None, max_length=50)
+    page_count: Optional[int] = Field(default=None, ge=1)
+    signature_required: Optional[bool] = None
+    signed_date: Optional[date] = None
+    retention_category: Optional[str] = Field(default=None, max_length=100)
     document_metadata: Optional[Dict[str, Any]] = None
 
 
@@ -104,6 +114,16 @@ class RFIDTagSummary(BaseSchema):
     epc: str
 
 
+class MovementSummary(BaseSchema):
+    """Movement summary for document response."""
+
+    id: UUID
+    movement_type: str
+    movement_date: datetime
+    reason: Optional[str] = None
+    notes: Optional[str] = None
+
+
 class DocumentResponse(IDTimestampSchema, DocumentBase):
     """Document response schema."""
 
@@ -123,6 +143,7 @@ class DocumentResponse(IDTimestampSchema, DocumentBase):
     container: Optional[ContainerSummary] = None
     location: Optional[LocationSummary] = None
     rfid_tag: Optional[RFIDTagSummary] = None
+    movements: List[MovementSummary] = []
     metadata: Optional[Dict[str, Any]] = Field(
         default=None,
         validation_alias=AliasChoices("document_metadata", "metadata"),

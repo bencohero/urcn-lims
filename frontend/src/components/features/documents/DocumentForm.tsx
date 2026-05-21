@@ -1,36 +1,36 @@
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
+import { Checkbox } from '@/components/ui/Checkbox';
 import { Button } from '@/components/ui/Button';
 import { useStudies } from '@/hooks/useStudies';
 import { useSites } from '@/hooks/useSites';
 import { useStorageLocations, useContainersByLocation } from '@/hooks/useStorage';
 import type { CreateDocumentRequest } from '@/types';
 
-
 const documentSchema = z.object({
   study_id: z.string().min(1, 'Etude requise'),
   site_id: z.string().min(1, 'Site requis'),
-  container_id: z.string().min(1, 'Conteneur requis'),
-  document_type: z.enum(['CONSENT', 'CRF', 'SOURCE_DOC'], {
-    required_error: 'Type requis',
-  }),
-  subject_id: z.string().min(1, 'ID sujet requis'),
-  visit_number: z.string().min(1, 'Numero de visite requis'),
-  form_name: z.string().min(1, 'Nom du formulaire requis'),
-  version: z.string().min(1, 'Version requise'),
-  page_count: z.coerce.number().min(1, 'Nombre de pages requis'),
-  signature_required: z.boolean(),
-  confidentiality_level: z.enum(['LOW', 'MEDIUM', 'HIGH']),
+  container_id: z.string().optional(),
+  document_type: z.string().min(1, 'Type requis'),
+  subject_id: z.string().optional(),
+  visit_number: z.string().optional(),
+  form_name: z.string().optional(),
+  version: z.string().optional(),
+  page_count: z.coerce.number().min(1).optional().or(z.literal(NaN).transform(() => undefined)),
+  signature_required: z.boolean().default(false),
+  signed_date: z.string().optional(),
+  confidentiality_level: z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']).default('HIGH'),
   storage_date: z.string().min(1, 'Date de stockage requise'),
-  expected_retention_until: z.string().min(1, 'Date de retention requise'),
+  expected_retention_until: z.string().optional(),
   description: z.string().optional(),
   internal_code: z.string().optional(),
-  physical_condition: z.enum(['EXCELLENT', 'GOOD', 'FAIR', 'POOR', 'DAMAGED']).optional(),
+  physical_condition: z.enum(['GOOD', 'FAIR', 'DAMAGED']).optional(),
   location_notes: z.string().optional(),
+  retention_category: z.string().optional(),
 });
 
 type DocumentFormValues = z.infer<typeof documentSchema>;
@@ -46,19 +46,20 @@ const DOCUMENT_TYPES = [
   { value: 'CONSENT', label: 'Consentement' },
   { value: 'CRF', label: 'CRF' },
   { value: 'SOURCE_DOC', label: 'Document source' },
+  { value: 'LAB_REPORT', label: 'Rapport laboratoire' },
+  { value: 'OTHER', label: 'Autre' },
 ];
 
 const CONFIDENTIALITY_LEVELS = [
-  { value: 'LOW', label: 'Basse' },
+  { value: 'LOW', label: 'Faible' },
   { value: 'MEDIUM', label: 'Moyenne' },
-  { value: 'HIGH', label: 'Haute' },
+  { value: 'HIGH', label: 'Elevee' },
+  { value: 'CRITICAL', label: 'Critique' },
 ];
 
 const PHYSICAL_CONDITIONS = [
-  { value: 'EXCELLENT', label: 'Excellent' },
   { value: 'GOOD', label: 'Bon' },
   { value: 'FAIR', label: 'Correct' },
-  { value: 'POOR', label: 'Mauvais' },
   { value: 'DAMAGED', label: 'Endommage' },
 ];
 
@@ -68,6 +69,7 @@ export function DocumentForm({ onSubmit, onCancel, loading, defaultValues }: Doc
   const {
     register,
     handleSubmit,
+    control,
     formState: { errors },
     setValue,
     watch,
@@ -75,7 +77,8 @@ export function DocumentForm({ onSubmit, onCancel, loading, defaultValues }: Doc
     resolver: zodResolver(documentSchema),
     defaultValues: {
       signature_required: false,
-      confidentiality_level: 'MEDIUM',
+      confidentiality_level: 'HIGH',
+      physical_condition: 'GOOD',
       storage_date: new Date().toISOString().split('T')[0],
       ...defaultValues,
     },
@@ -83,6 +86,7 @@ export function DocumentForm({ onSubmit, onCancel, loading, defaultValues }: Doc
 
   const selectedStudyId = watch('study_id');
   const selectedSiteId = watch('site_id');
+  const signatureRequired = watch('signature_required');
 
   const { data: studiesData } = useStudies({ page_size: 100 });
   const studyOptions = (studiesData?.items ?? []).map((s) => ({
@@ -115,14 +119,35 @@ export function DocumentForm({ onSubmit, onCancel, loading, defaultValues }: Doc
   }));
 
   const handleFormSubmit = (data: DocumentFormValues) => {
-    onSubmit(data as CreateDocumentRequest);
+    const payload: CreateDocumentRequest = {
+      study_id: data.study_id,
+      site_id: data.site_id,
+      container_id: data.container_id || undefined,
+      document_type: data.document_type,
+      subject_id: data.subject_id || undefined,
+      visit_number: data.visit_number || undefined,
+      form_name: data.form_name || undefined,
+      version: data.version || undefined,
+      page_count: data.page_count ?? undefined,
+      signature_required: data.signature_required,
+      signed_date: data.signed_date || undefined,
+      confidentiality_level: data.confidentiality_level,
+      storage_date: data.storage_date,
+      expected_retention_until: data.expected_retention_until || undefined,
+      description: data.description || undefined,
+      internal_code: data.internal_code || undefined,
+      physical_condition: data.physical_condition,
+      location_notes: data.location_notes || undefined,
+      retention_category: data.retention_category || undefined,
+    };
+    onSubmit(payload);
   };
 
   return (
     <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
       {/* Identification */}
       <fieldset>
-        <legend className="text-sm font-medium text-gray-900 mb-3">Identification</legend>
+        <legend className="mb-3 text-sm font-semibold text-gray-900">Identification</legend>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Select
             label="Etude"
@@ -135,7 +160,7 @@ export function DocumentForm({ onSubmit, onCancel, loading, defaultValues }: Doc
               setValue('container_id', '');
             }}
             error={errors.study_id?.message}
-            placeholder="Sélectionner une étude..."
+            placeholder="Selectionner une etude..."
             required
           />
           <Select
@@ -148,51 +173,43 @@ export function DocumentForm({ onSubmit, onCancel, loading, defaultValues }: Doc
               setValue('container_id', '');
             }}
             error={errors.site_id?.message}
-            placeholder={selectedStudyId ? 'Sélectionner un site...' : "Choisir d'abord une étude"}
+            placeholder={selectedStudyId ? 'Selectionner un site...' : "Choisir d'abord une etude"}
             disabled={!selectedStudyId}
             required
           />
           <Select
             label="Type de document"
             options={DOCUMENT_TYPES}
-            value={watch('document_type')}
-            onValueChange={(val) => setValue('document_type', val as DocumentFormValues['document_type'])}
+            value={watch('document_type') || ''}
+            onValueChange={(val) => setValue('document_type', val)}
             error={errors.document_type?.message}
             required
           />
           <Input
             label="ID Sujet"
             placeholder="Ex: SUBJ-001"
-            error={errors.subject_id?.message}
-            required
             {...register('subject_id')}
           />
         </div>
       </fieldset>
 
-      {/* Details */}
+      {/* Details du document */}
       <fieldset>
-        <legend className="text-sm font-medium text-gray-900 mb-3">Details du document</legend>
+        <legend className="mb-3 text-sm font-semibold text-gray-900">Details du document</legend>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input
             label="Numero de visite"
             placeholder="Ex: V1"
-            error={errors.visit_number?.message}
-            required
             {...register('visit_number')}
           />
           <Input
             label="Nom du formulaire"
             placeholder="Ex: Formulaire de consentement"
-            error={errors.form_name?.message}
-            required
             {...register('form_name')}
           />
           <Input
             label="Version"
             placeholder="Ex: 1.0"
-            error={errors.version?.message}
-            required
             {...register('version')}
           />
           <Input
@@ -200,7 +217,6 @@ export function DocumentForm({ onSubmit, onCancel, loading, defaultValues }: Doc
             type="number"
             min={1}
             error={errors.page_count?.message}
-            required
             {...register('page_count')}
           />
           <Select
@@ -218,12 +234,39 @@ export function DocumentForm({ onSubmit, onCancel, loading, defaultValues }: Doc
             onValueChange={(val) => setValue('physical_condition', val as DocumentFormValues['physical_condition'])}
             placeholder="Selectionner..."
           />
+          <Input
+            label="Categorie de retention"
+            placeholder="Ex: Essentiel"
+            {...register('retention_category')}
+          />
+        </div>
+        <div className="mt-4 space-y-3">
+          <Controller
+            name="signature_required"
+            control={control}
+            render={({ field }) => (
+              <Checkbox
+                label="Signature requise"
+                description="Ce document necessite une signature du sujet ou de l'investigateur"
+                checked={field.value}
+                onCheckedChange={(checked) => field.onChange(checked === true)}
+              />
+            )}
+          />
+          {signatureRequired && (
+            <Input
+              label="Date de signature"
+              type="date"
+              error={errors.signed_date?.message}
+              {...register('signed_date')}
+            />
+          )}
         </div>
       </fieldset>
 
       {/* Stockage */}
       <fieldset>
-        <legend className="text-sm font-medium text-gray-900 mb-3">Stockage</legend>
+        <legend className="mb-3 text-sm font-semibold text-gray-900">Stockage</legend>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Select
             label="Emplacement"
@@ -244,7 +287,6 @@ export function DocumentForm({ onSubmit, onCancel, loading, defaultValues }: Doc
             error={errors.container_id?.message}
             placeholder={selectedLocationId ? 'Selectionner un conteneur...' : "Choisir d'abord un emplacement"}
             disabled={!selectedLocationId}
-            required
           />
           <Input
             label="Code interne"
@@ -262,8 +304,12 @@ export function DocumentForm({ onSubmit, onCancel, loading, defaultValues }: Doc
             label="Retention jusqu'au"
             type="date"
             error={errors.expected_retention_until?.message}
-            required
             {...register('expected_retention_until')}
+          />
+          <Input
+            label="Notes d'emplacement"
+            placeholder="Ex: Etagere 3, boite rouge"
+            {...register('location_notes')}
           />
         </div>
       </fieldset>
@@ -275,7 +321,6 @@ export function DocumentForm({ onSubmit, onCancel, loading, defaultValues }: Doc
         {...register('description')}
       />
 
-      {/* Actions */}
       <div className="flex justify-end gap-3 border-t border-gray-100 pt-4">
         <Button type="button" variant="outline" onClick={onCancel}>
           Annuler
