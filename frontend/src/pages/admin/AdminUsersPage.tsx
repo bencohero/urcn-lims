@@ -10,6 +10,9 @@ import {
   Unlock,
   Network,
   Info,
+  Eye,
+  Building2,
+  Star,
 } from 'lucide-react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -23,6 +26,7 @@ import { Modal } from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/Toast';
 import {
   useUsers,
+  useUserSiteRoles,
   useCreateUser,
   useUpdateUser,
   useActivateUser,
@@ -182,6 +186,117 @@ function ResetPasswordModal({
   );
 }
 
+// ─── User Role/Site Detail Modal ──────────────────────────────────────────────
+
+function UserRoleSiteDetailModal({ user, onClose }: { user: User; onClose: () => void }) {
+  const { data: assignments, isLoading } = useUserSiteRoles(user.id);
+
+  const active = (assignments ?? []).filter((a) => a.is_active);
+  const inactive = (assignments ?? []).filter((a) => !a.is_active);
+
+  type SiteGroup = { siteName: string; siteNumber: string; roles: NonNullable<typeof assignments> };
+  const bySite = active.reduce<Record<string, SiteGroup>>((acc, a) => {
+    if (!acc[a.site_id]) {
+      acc[a.site_id] = { siteName: a.site_name, siteNumber: a.site_number, roles: [] };
+    }
+    acc[a.site_id].roles.push(a);
+    return acc;
+  }, {});
+
+  return (
+    <Modal
+      open
+      onOpenChange={(v) => { if (!v) onClose(); }}
+      title="Roles et sites"
+      description={`Affectations de ${user.first_name} ${user.last_name}`}
+      size="md"
+    >
+      <div className="space-y-4">
+        {/* User header */}
+        <div className="flex items-center gap-3 rounded-lg bg-gray-50 p-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-100 text-sm font-bold text-primary-700">
+            {user.first_name.charAt(0)}{user.last_name.charAt(0)}
+          </div>
+          <div className="min-w-0">
+            <p className="font-medium text-gray-900">{user.first_name} {user.last_name}</p>
+            <p className="truncate text-xs text-gray-500">{user.email}</p>
+          </div>
+          <div className="ml-auto shrink-0">
+            <Badge variant={user.is_active ? 'success' : 'default'}>
+              {user.is_active ? 'Actif' : 'Inactif'}
+            </Badge>
+          </div>
+        </div>
+
+        {/* Active assignments */}
+        {isLoading ? (
+          <p className="py-8 text-center text-sm text-gray-400">Chargement...</p>
+        ) : active.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-gray-200 py-8 text-center">
+            <p className="text-sm text-gray-400">Aucune affectation active</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+              Affectations actives ({active.length})
+            </p>
+            {Object.entries(bySite).map(([siteId, { siteName, siteNumber, roles }]) => (
+              <div key={siteId} className="rounded-lg border border-gray-100 bg-white p-3 shadow-sm">
+                <div className="mb-2.5 flex items-center gap-2">
+                  <Building2 className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+                  <span className="text-sm font-semibold text-gray-800">{siteName}</span>
+                  <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-mono text-gray-500">{siteNumber}</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {roles.map((r) => (
+                    <div
+                      key={r.id}
+                      className="flex items-center gap-1.5 rounded-full border border-gray-100 bg-gray-50 px-2.5 py-1"
+                    >
+                      <Badge variant={(ROLE_COLORS[r.role_code as RoleCode]) ?? 'default'} className="text-xs">
+                        {r.role_name}
+                      </Badge>
+                      {r.is_primary && (
+                        <Star className="h-3 w-3 fill-amber-400 text-amber-400" title="Contact principal" />
+                      )}
+                      <span className="text-xs text-gray-400">depuis {formatDate(r.assigned_at)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Inactive assignments */}
+        {inactive.length > 0 && (
+          <details>
+            <summary className="cursor-pointer select-none text-xs text-gray-400 hover:text-gray-600">
+              Historique — {inactive.length} affectation{inactive.length > 1 ? 's' : ''} inactive{inactive.length > 1 ? 's' : ''}
+            </summary>
+            <div className="mt-2 divide-y divide-gray-50 rounded-lg border border-gray-100">
+              {inactive.map((a) => (
+                <div key={a.id} className="flex items-center justify-between px-3 py-2 opacity-50">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="default">{a.role_name}</Badge>
+                    <span className="text-xs text-gray-500">{a.site_name}</span>
+                    <span className="text-xs font-mono text-gray-400">{a.site_number}</span>
+                  </div>
+                  <span className="text-xs text-gray-400">Retire</span>
+                </div>
+              ))}
+            </div>
+          </details>
+        )}
+
+        <div className="flex justify-end border-t border-gray-100 pt-3">
+          <Button variant="outline" onClick={onClose}>Fermer</Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function AdminUsersPage() {
@@ -190,6 +305,7 @@ export default function AdminUsersPage() {
   const [userToEdit, setUserToEdit] = useState<User | null>(null);
   const [userToReset, setUserToReset] = useState<User | null>(null);
   const [userToAssign, setUserToAssign] = useState<User | null>(null);
+  const [userToView, setUserToView] = useState<User | null>(null);
   const [filters, setFilters] = useState<UserFilters>({
     page: 1,
     page_size: 25,
@@ -237,22 +353,51 @@ export default function AdminUsersPage() {
       key: 'roles',
       header: 'Roles',
       render: (user) => (
-        <div className="flex flex-wrap gap-1">
-          {user.roles.map((role) => (
-            <Badge key={role.code} variant={ROLE_COLORS[role.code]}>
-              {ROLE_LABELS[role.code]}
-            </Badge>
-          ))}
-        </div>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); setUserToView(user); }}
+          className="group flex flex-wrap items-center gap-1 rounded-md px-1 py-0.5 transition-all hover:bg-primary-50 hover:ring-1 hover:ring-primary-200"
+          title="Voir les affectations"
+        >
+          {user.roles.length === 0 ? (
+            <span className="text-xs italic text-gray-300">Aucun role</span>
+          ) : (
+            <>
+              {user.roles.slice(0, 3).map((role) => (
+                <Badge key={role.code} variant={ROLE_COLORS[role.code]}>
+                  {ROLE_LABELS[role.code]}
+                </Badge>
+              ))}
+              {user.roles.length > 3 && (
+                <span className="text-xs text-gray-400">+{user.roles.length - 3}</span>
+              )}
+            </>
+          )}
+          <Eye className="ml-1 h-3.5 w-3.5 shrink-0 text-gray-300 opacity-0 transition-opacity group-hover:opacity-100" />
+        </button>
       ),
     },
     {
       key: 'sites',
       header: 'Sites',
       render: (user) => (
-        <span className="text-sm text-gray-600">
-          {user.sites.length > 0 ? user.sites.map((s) => s.name).join(', ') : '-'}
-        </span>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); setUserToView(user); }}
+          className="group flex items-center gap-1.5 rounded-md px-1 py-0.5 text-sm text-gray-600 transition-all hover:bg-primary-50 hover:ring-1 hover:ring-primary-200"
+          title="Voir les affectations"
+        >
+          {user.sites.length === 0 ? (
+            <span className="text-xs italic text-gray-300">Aucun site</span>
+          ) : (
+            <>
+              <span className="max-w-[160px] truncate">
+                {user.sites.map((s) => s.name).join(', ')}
+              </span>
+              <Eye className="h-3.5 w-3.5 shrink-0 text-gray-300 opacity-0 transition-opacity group-hover:opacity-100" />
+            </>
+          )}
+        </button>
       ),
     },
     {
@@ -589,6 +734,14 @@ export default function AdminUsersPage() {
         <SiteRoleAssignmentModal
           user={userToAssign}
           onClose={() => setUserToAssign(null)}
+        />
+      )}
+
+      {/* Role/Site Detail Modal */}
+      {userToView && (
+        <UserRoleSiteDetailModal
+          user={userToView}
+          onClose={() => setUserToView(null)}
         />
       )}
     </div>
