@@ -686,22 +686,22 @@ export interface DashboardStatistics {
 
 // --- Audit Trail Types ---
 
-export type AuditEventType = 'CREATE' | 'UPDATE' | 'DELETE';
+export type AuditEventType = 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'LOGOUT' | 'READ' | 'VERIFY' | 'ARCHIVE' | 'RESTORE';
 
 export interface AuditEntry {
   id: string;
-  event_type: AuditEventType;
-  table_name: string;
-  record_id: string;
+  event_type: string;
+  table_name: string | null;
+  record_id: string | null;
   user: {
     id: string;
     username: string;
     full_name: string;
-  };
+  } | null;
   action: string;
   old_values: Record<string, unknown> | null;
   new_values: Record<string, unknown> | null;
-  ip_address: string;
+  ip_address: string | null;
   site_id?: string;
   timestamp: string;
   hash_current: string;
@@ -709,7 +709,7 @@ export interface AuditEntry {
 
 export interface AuditTrailFilters extends PaginationParams {
   user_id?: string;
-  event_type?: AuditEventType;
+  event_type?: string;
   table_name?: string;
   from_timestamp?: string;
   to_timestamp?: string;
@@ -717,12 +717,23 @@ export interface AuditTrailFilters extends PaginationParams {
 
 export interface IntegrityVerification {
   total_records_checked: number;
+  verified_count?: number;
   integrity_valid: boolean;
   broken_chain_detected: boolean;
   details: {
-    first_record_id: string;
-    last_record_id: string;
-    verification_timestamp: string;
+    first_record_id?: string;
+    last_record_id?: string;
+    verification_timestamp?: string;
+    message?: string;
+    broken_at_id?: string;
+    breaks?: Array<{
+      record_id: string;
+      timestamp: string;
+      expected_previous?: string;
+      actual_previous?: string;
+      issue?: string;
+    }>;
+    checked_range?: { from?: string; to?: string };
   };
 }
 

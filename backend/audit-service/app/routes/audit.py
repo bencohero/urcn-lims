@@ -3,11 +3,8 @@
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
-
-import sys
-sys.path.insert(0, "/home/skamboule/claude-code/urcn-lims/backend")
 
 from common.database import get_db
 from common.models import User
@@ -29,14 +26,13 @@ async def get_audit_trail(
     record_id: Optional[UUID] = Query(None),
     from_timestamp: Optional[str] = Query(None),
     to_timestamp: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(100, ge=1, le=500),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission("audit", "read")),
 ):
-    """
-    Query audit trail with filters.
-    """
+    """Query audit trail with filters and pagination."""
     service = AuditQueryService(db)
     entries, total = await service.query_audit_trail(
         user_id=user_id,
@@ -45,21 +41,53 @@ async def get_audit_trail(
         record_id=record_id,
         from_timestamp=from_timestamp,
         to_timestamp=to_timestamp,
+        search=search,
         page=page,
         page_size=page_size,
     )
+    return PaginatedResponse.create(
+        items=[AuditTrailResponse.model_validate(e) for e in entries],
+        page=page,
+        page_size=page_size,
+        total_items=total,
+    )
 
-    return PaginatedResponse(
+
+@router.get("/statistics", response_model=APIResponse)
+async def get_audit_statistics(
+    from_timestamp: Optional[str] = Query(None),
+    to_timestamp: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("audit", "read")),
+):
+    """Get audit trail statistics."""
+    service = AuditQueryService(db)
+    stats = await service.get_statistics(
+        from_timestamp=from_timestamp,
+        to_timestamp=to_timestamp,
+    )
+    return APIResponse(success=True, data=stats)
+
+
+@router.get("/verify-integrity", response_model=APIResponse)
+async def verify_integrity(
+    from_id: Optional[UUID] = Query(None),
+    to_id: Optional[UUID] = Query(None),
+    limit: int = Query(1000, ge=100, le=10000),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("audit", "verify")),
+):
+    """Verify audit trail integrity (hash chain validation)."""
+    service = IntegrityService(db)
+    result = await service.verify_integrity(from_id=from_id, to_id=to_id, limit=limit)
+    return APIResponse(
         success=True,
-        data={
-            "items": [AuditTrailResponse.model_validate(e) for e in entries],
-            "pagination": {
-                "page": page,
-                "page_size": page_size,
-                "total_items": total,
-                "total_pages": (total + page_size - 1) // page_size,
-            },
-        },
+        data=result,
+        message=(
+            "Intégrité vérifiée avec succès"
+            if result["integrity_valid"]
+            else "Anomalie détectée dans la chaîne d'intégrité"
+        ),
     )
 
 
@@ -70,12 +98,9 @@ async def get_record_history(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission("audit", "read")),
 ):
-    """
-    Get complete audit history for a specific record.
-    """
+    """Get complete audit history for a specific record."""
     service = AuditQueryService(db)
     entries = await service.get_record_history(table_name, record_id)
-
     return APIResponse(
         success=True,
         data={
@@ -87,48 +112,15 @@ async def get_record_history(
     )
 
 
-@router.get("/verify-integrity", response_model=APIResponse)
-async def verify_integrity(
-    from_id: Optional[UUID] = Query(None),
-    to_id: Optional[UUID] = Query(None),
-    limit: int = Query(1000, ge=100, le=10000),
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_permission("audit", "verify")),
-):
-    """
-    Verify audit trail integrity (hash chain validation).
-    """
-    service = IntegrityService(db)
-    result = await service.verify_integrity(
-        from_id=from_id,
-        to_id=to_id,
-        limit=limit,
-    )
-
-    return APIResponse(
-        success=True,
-        data=result,
-        message="Audit trail integrity verified successfully" if result["integrity_valid"] else "Integrity check failed",
-    )
-
-
-@router.get("/statistics", response_model=APIResponse)
-async def get_audit_statistics(
-    from_timestamp: Optional[str] = Query(None),
-    to_timestamp: Optional[str] = Query(None),
+@router.get("/{entry_id}", response_model=APIResponse)
+async def get_audit_entry(
+    entry_id: UUID,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission("audit", "read")),
 ):
-    """
-    Get audit trail statistics.
-    """
+    """Get a single audit trail entry by ID."""
     service = AuditQueryService(db)
-    stats = await service.get_statistics(
-        from_timestamp=from_timestamp,
-        to_timestamp=to_timestamp,
-    )
-
-    return APIResponse(
-        success=True,
-        data=stats,
-    )
+    entry = await service.get_by_id(entry_id)
+    if not entry:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Entry not found")
+    return APIResponse(success=True, data=AuditTrailResponse.model_validate(entry))

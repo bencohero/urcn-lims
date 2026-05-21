@@ -4,11 +4,8 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
 
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-
-import sys
-sys.path.insert(0, "/home/skamboule/claude-code/urcn-lims/backend")
 
 from common.models import AuditTrail
 from common.utils.logger import get_logger
@@ -22,6 +19,13 @@ class AuditQueryService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
+    async def get_by_id(self, entry_id: UUID) -> Optional[AuditTrail]:
+        """Get a single audit entry by ID."""
+        result = await self.db.execute(
+            select(AuditTrail).where(AuditTrail.id == entry_id)
+        )
+        return result.scalar_one_or_none()
+
     async def query_audit_trail(
         self,
         user_id: Optional[UUID] = None,
@@ -30,15 +34,11 @@ class AuditQueryService:
         record_id: Optional[UUID] = None,
         from_timestamp: Optional[str] = None,
         to_timestamp: Optional[str] = None,
+        search: Optional[str] = None,
         page: int = 1,
         page_size: int = 100,
     ) -> Tuple[List[AuditTrail], int]:
-        """
-        Query audit trail with filters.
-
-        Returns:
-            Tuple of (entries, total_count)
-        """
+        """Query audit trail with filters and pagination."""
         query = select(AuditTrail)
 
         filters = []
@@ -54,6 +54,15 @@ class AuditQueryService:
             filters.append(AuditTrail.timestamp >= datetime.fromisoformat(from_timestamp))
         if to_timestamp:
             filters.append(AuditTrail.timestamp <= datetime.fromisoformat(to_timestamp))
+        if search:
+            filters.append(
+                or_(
+                    AuditTrail.action.ilike(f"%{search}%"),
+                    AuditTrail.username.ilike(f"%{search}%"),
+                    AuditTrail.user_full_name.ilike(f"%{search}%"),
+                    AuditTrail.table_name.ilike(f"%{search}%"),
+                )
+            )
 
         if filters:
             query = query.where(and_(*filters))
@@ -95,11 +104,8 @@ class AuditQueryService:
             )
             .order_by(AuditTrail.timestamp.asc())
         )
-
         result = await self.db.execute(query)
-        entries = result.scalars().all()
-
-        return entries
+        return result.scalars().all()
 
     async def get_statistics(
         self,
@@ -113,53 +119,38 @@ class AuditQueryService:
         if to_timestamp:
             filters.append(AuditTrail.timestamp <= datetime.fromisoformat(to_timestamp))
 
-        # Events by type
         type_query = select(
-            AuditTrail.event_type,
-            func.count(AuditTrail.id).label("count")
+            AuditTrail.event_type, func.count(AuditTrail.id).label("count")
         ).group_by(AuditTrail.event_type)
-
         if filters:
             type_query = type_query.where(and_(*filters))
+        by_type = dict((await self.db.execute(type_query)).all())
 
-        type_result = await self.db.execute(type_query)
-        by_type = dict(type_result.all())
-
-        # Events by table
         table_query = select(
-            AuditTrail.table_name,
-            func.count(AuditTrail.id).label("count")
+            AuditTrail.table_name, func.count(AuditTrail.id).label("count")
         ).group_by(AuditTrail.table_name)
-
         if filters:
             table_query = table_query.where(and_(*filters))
+        by_table = {k: v for k, v in (await self.db.execute(table_query)).all() if k}
 
-        table_result = await self.db.execute(table_query)
-        by_table = dict(table_result.all())
-
-        # Total count
         total_query = select(func.count()).select_from(AuditTrail)
         if filters:
             total_query = total_query.where(and_(*filters))
-        total_result = await self.db.execute(total_query)
-        total = total_result.scalar()
+        total = (await self.db.execute(total_query)).scalar()
 
-        # Most active users
         user_query = (
-            select(
-                AuditTrail.username,
-                func.count(AuditTrail.id).label("count")
-            )
+            select(AuditTrail.username, func.count(AuditTrail.id).label("count"))
+            .where(AuditTrail.username.isnot(None))
             .group_by(AuditTrail.username)
             .order_by(func.count(AuditTrail.id).desc())
             .limit(10)
         )
-
         if filters:
             user_query = user_query.where(and_(*filters))
-
-        user_result = await self.db.execute(user_query)
-        top_users = [{"username": u, "actions": c} for u, c in user_result.all()]
+        top_users = [
+            {"username": u, "actions": c}
+            for u, c in (await self.db.execute(user_query)).all()
+        ]
 
         return {
             "total_entries": total,

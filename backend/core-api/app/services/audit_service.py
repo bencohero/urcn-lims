@@ -9,8 +9,6 @@ from uuid import UUID
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import sys
-sys.path.insert(0, "/home/skamboule/claude-code/urcn-lims/backend")
 
 from common.models import AuditTrail, User
 

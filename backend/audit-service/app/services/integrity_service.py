@@ -8,8 +8,6 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import sys
-sys.path.insert(0, "/home/skamboule/claude-code/urcn-lims/backend")
 
 from common.models import AuditTrail
 from common.utils.logger import get_logger
