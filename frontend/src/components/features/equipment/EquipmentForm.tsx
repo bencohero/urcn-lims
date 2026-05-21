@@ -22,7 +22,6 @@ const schema = z.object({
   storage_date: z.string().min(1, 'Date de stockage requise'),
   calibration_required: z.boolean(),
   next_calibration_date: z.string().optional(),
-  internal_code: z.string().optional(),
   description: z.string().optional(),
   purchase_date: z.string().optional(),
   purchase_cost: z.coerce.number().optional(),
@@ -154,11 +153,12 @@ export function EquipmentForm({ onSubmit, onCancel, loading, defaultValues }: Eq
             required
             {...register('serial_number')}
           />
-          <Input
-            label="Code interne"
-            placeholder="Ex: EQ-2026-001"
-            {...register('internal_code')}
-          />
+          <div className="flex flex-col gap-1">
+            <span className="text-sm font-medium text-gray-700">Code interne</span>
+            <span className="flex h-9 items-center rounded-md border border-dashed border-gray-300 bg-gray-50 px-3 text-sm text-gray-400">
+              Genere automatiquement (EQUIP-{new Date().getFullYear()}-XXXXX)
+            </span>
+          </div>
         </div>
       </fieldset>
 

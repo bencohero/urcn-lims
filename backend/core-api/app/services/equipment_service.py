@@ -1,6 +1,6 @@
 """Equipment service."""
 
-from datetime import date
+from datetime import date, datetime
 from typing import List, Optional, Tuple
 from uuid import UUID
 
@@ -99,13 +99,38 @@ class EquipmentService:
 
         return equipment
 
+    async def _generate_internal_code(self) -> str:
+        """Generate next EQUIP-YYYY-NNNNN code for the current year."""
+        year = datetime.now().year
+        prefix = f"EQUIP-{year}-"
+        result = await self.db.execute(
+            select(StoredItem.internal_code)
+            .where(
+                and_(
+                    StoredItem.item_type == "EQUIPMENT",
+                    StoredItem.internal_code.like(f"{prefix}%"),
+                )
+            )
+        )
+        codes = result.scalars().all()
+        max_seq = 0
+        for code in codes:
+            try:
+                seq = int(code[len(prefix):])
+                if seq > max_seq:
+                    max_seq = seq
+            except (ValueError, TypeError):
+                pass
+        return f"{prefix}{max_seq + 1:05d}"
+
     async def create_equipment(self, equipment_data: EquipmentCreate, user: User) -> Equipment:
         """Create new equipment."""
+        internal_code = equipment_data.internal_code or await self._generate_internal_code()
         equipment = Equipment(
             study_id=equipment_data.study_id,
             site_id=equipment_data.site_id,
             container_id=equipment_data.container_id,
-            internal_code=equipment_data.internal_code,
+            internal_code=internal_code,
             description=equipment_data.description,
             quantity=equipment_data.quantity,
             storage_date=equipment_data.storage_date,

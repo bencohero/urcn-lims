@@ -26,7 +26,6 @@ const schema = z.object({
   hazardous: z.boolean().optional(),
   hazard_classification: z.string().optional(),
   storage_conditions: z.string().optional(),
-  internal_code: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -229,11 +228,12 @@ export function ConsumableForm({ onSubmit, onCancel, loading, defaultValues }: C
             required
             {...register('storage_date')}
           />
-          <Input
-            label="Code interne"
-            placeholder="Ex: CONS-2026-001"
-            {...register('internal_code')}
-          />
+          <div className="flex flex-col gap-1">
+            <span className="text-sm font-medium text-gray-700">Code interne</span>
+            <span className="flex h-9 items-center rounded-md border border-dashed border-gray-300 bg-gray-50 px-3 text-sm text-gray-400">
+              Genere automatiquement (CONS-{new Date().getFullYear()}-XXXXX)
+            </span>
+          </div>
         </div>
       </fieldset>
 

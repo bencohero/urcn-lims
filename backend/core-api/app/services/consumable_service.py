@@ -1,6 +1,6 @@
 """Consumable service."""
 
-from datetime import date
+from datetime import date, datetime
 from typing import List, Optional, Tuple
 from uuid import UUID
 
@@ -99,13 +99,38 @@ class ConsumableService:
 
         return consumable
 
+    async def _generate_internal_code(self) -> str:
+        """Generate next CONS-YYYY-NNNNN code for the current year."""
+        year = datetime.now().year
+        prefix = f"CONS-{year}-"
+        result = await self.db.execute(
+            select(StoredItem.internal_code)
+            .where(
+                and_(
+                    StoredItem.item_type == "CONSUMABLE",
+                    StoredItem.internal_code.like(f"{prefix}%"),
+                )
+            )
+        )
+        codes = result.scalars().all()
+        max_seq = 0
+        for code in codes:
+            try:
+                seq = int(code[len(prefix):])
+                if seq > max_seq:
+                    max_seq = seq
+            except (ValueError, TypeError):
+                pass
+        return f"{prefix}{max_seq + 1:05d}"
+
     async def create_consumable(self, consumable_data: ConsumableCreate, user: User) -> Consumable:
         """Create new consumable."""
+        internal_code = consumable_data.internal_code or await self._generate_internal_code()
         consumable = Consumable(
             study_id=consumable_data.study_id,
             site_id=consumable_data.site_id,
             container_id=consumable_data.container_id,
-            internal_code=consumable_data.internal_code,
+            internal_code=internal_code,
             description=consumable_data.description,
             quantity=consumable_data.quantity,
             unit=consumable_data.unit,
