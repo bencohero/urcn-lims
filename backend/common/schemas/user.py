@@ -60,6 +60,8 @@ class UserResponse(IDTimestampSchema, UserBase):
     is_superuser: bool
     mfa_enabled: bool
     last_login: Optional[datetime] = None
+    locked_until: Optional[datetime] = None
+    failed_login_attempts: int = 0
     roles: List[RoleSummary] = []
     sites: List[SiteSummary] = []
 

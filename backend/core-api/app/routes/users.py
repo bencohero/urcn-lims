@@ -64,6 +64,8 @@ async def get_current_user_sites(
 async def get_users(
     is_active: Optional[bool] = Query(None),
     search: Optional[str] = Query(None),
+    role: Optional[str] = Query(None),
+    site_id: Optional[UUID] = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
@@ -74,6 +76,8 @@ async def get_users(
     users, total = await service.get_users(
         is_active=is_active,
         search=search,
+        role=role,
+        site_id=site_id,
         page=page,
         page_size=page_size,
     )

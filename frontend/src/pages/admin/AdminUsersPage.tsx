@@ -9,6 +9,7 @@ import {
   Pencil,
   Unlock,
   Network,
+  Info,
 } from 'lucide-react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -34,7 +35,7 @@ import { AdminSubNav } from '@/components/features/admin/AdminSubNav';
 import { SiteRoleAssignmentModal } from '@/components/features/admin/SiteRoleAssignmentModal';
 import { formatDate } from '@/lib/utils/utils';
 import type { User, RoleCode } from '@/types';
-import type { UserFilters, CreateUserRequest } from '@/lib/api/users';
+import type { UserFilters } from '@/lib/api/users';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -74,19 +75,29 @@ const ROLE_COLORS: Record<RoleCode, 'danger' | 'primary' | 'info' | 'warning' | 
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
 
+const PASSWORD_HINT = 'Min. 12 caracteres, avec majuscule, minuscule, chiffre et caractere special.';
+
+const passwordRules = z
+  .string()
+  .min(12, 'Minimum 12 caracteres')
+  .regex(/[A-Z]/, 'Au moins une majuscule')
+  .regex(/[a-z]/, 'Au moins une minuscule')
+  .regex(/[0-9]/, 'Au moins un chiffre')
+  .regex(/[!@#$%^&*()_+\-=\[\]{}|;:,.<>?]/, 'Au moins un caractere special');
+
 const createUserSchema = z.object({
   username: z.string().min(3, 'Minimum 3 caracteres'),
   email: z.string().email('Email invalide'),
   first_name: z.string().min(1, 'Prenom requis'),
   last_name: z.string().min(1, 'Nom requis'),
   phone: z.string().optional(),
-  password: z.string().min(8, 'Minimum 8 caracteres'),
+  password: passwordRules,
 });
 
 const resetPasswordSchema = z
   .object({
-    new_password: z.string().min(8, 'Minimum 8 caracteres'),
-    confirm_password: z.string().min(8, 'Minimum 8 caracteres'),
+    new_password: passwordRules,
+    confirm_password: z.string(),
   })
   .refine((d) => d.new_password === d.confirm_password, {
     message: 'Les mots de passe ne correspondent pas',
@@ -140,6 +151,10 @@ function ResetPasswordModal({
       size="sm"
     >
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <div className="flex items-start gap-2 rounded-md bg-blue-50 px-3 py-2 text-xs text-blue-700">
+          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          {PASSWORD_HINT}
+        </div>
         <Input
           label="Nouveau mot de passe"
           type="password"
@@ -175,7 +190,6 @@ export default function AdminUsersPage() {
   const [userToEdit, setUserToEdit] = useState<User | null>(null);
   const [userToReset, setUserToReset] = useState<User | null>(null);
   const [userToAssign, setUserToAssign] = useState<User | null>(null);
-  const [selectedRole, setSelectedRole] = useState<RoleCode>('DATA_CLERK');
   const [filters, setFilters] = useState<UserFilters>({
     page: 1,
     page_size: 25,
@@ -366,18 +380,16 @@ export default function AdminUsersPage() {
   };
 
   const onCreateSubmit = (formData: CreateUserFormValues) => {
-    const payload: CreateUserRequest = {
-      ...formData,
-      roles: [selectedRole],
-      site_ids: [],
-    };
-    createUser.mutate(payload, {
+    createUser.mutate(formData, {
       onSuccess: () => {
         toast({ variant: 'success', title: 'Utilisateur cree' });
         setShowCreateModal(false);
         reset();
       },
-      onError: () => toast({ variant: 'error', title: 'Erreur lors de la creation' }),
+      onError: (err: unknown) => {
+        const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+        toast({ variant: 'error', title: typeof detail === 'string' ? detail : 'Erreur lors de la creation' });
+      },
     });
   };
 
@@ -478,7 +490,7 @@ export default function AdminUsersPage() {
       {/* Create User Modal */}
       <Modal
         open={showCreateModal}
-        onOpenChange={(v) => { if (!v) { reset(); setSelectedRole('DATA_CLERK'); } setShowCreateModal(v); }}
+        onOpenChange={(v) => { if (!v) reset(); setShowCreateModal(v); }}
         title="Nouvel utilisateur"
         description="Creer un nouveau compte utilisateur"
         size="lg"
@@ -514,23 +526,22 @@ export default function AdminUsersPage() {
               label="Telephone"
               {...register('phone')}
             />
-            <Input
-              label="Mot de passe"
-              type="password"
-              error={errors.password?.message}
-              required
-              {...register('password')}
-            />
+            <div className="space-y-1">
+              <Input
+                label="Mot de passe"
+                type="password"
+                error={errors.password?.message}
+                required
+                {...register('password')}
+              />
+              <p className="flex items-center gap-1 text-xs text-gray-400">
+                <Info className="h-3 w-3 shrink-0" />
+                {PASSWORD_HINT}
+              </p>
+            </div>
           </div>
-          {/* <Select
-            label="Role"
-            options={ROLE_OPTIONS.filter((r) => r.value !== '')}
-            value={selectedRole}
-            onValueChange={(val) => setSelectedRole(val as RoleCode)}
-            required
-          /> */}
           <div className="flex justify-end gap-3 border-t border-gray-100 pt-4">
-            <Button type="button" variant="outline" onClick={() => setShowCreateModal(false)}>
+            <Button type="button" variant="outline" onClick={() => { reset(); setShowCreateModal(false); }}>
               Annuler
             </Button>
             <Button type="submit" loading={createUser.isPending}>

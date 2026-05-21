@@ -28,6 +28,8 @@ class UserService:
         self,
         is_active: Optional[bool] = None,
         search: Optional[str] = None,
+        role: Optional[str] = None,
+        site_id: Optional[UUID] = None,
         page: int = 1,
         page_size: int = 50,
     ) -> Tuple[List[User], int]:
@@ -49,6 +51,19 @@ class UserService:
                     User.last_name.ilike(f"%{search}%"),
                 )
             )
+        if role:
+            role_subq = (
+                select(SiteUser.user_id)
+                .join(Role, SiteUser.role_id == Role.id)
+                .where(and_(Role.code == role, SiteUser.unassigned_at.is_(None)))
+            )
+            filters.append(User.id.in_(role_subq))
+        if site_id:
+            site_subq = (
+                select(SiteUser.user_id)
+                .where(and_(SiteUser.site_id == site_id, SiteUser.unassigned_at.is_(None)))
+            )
+            filters.append(User.id.in_(site_subq))
 
         if filters:
             query = query.where(and_(*filters))
@@ -86,21 +101,11 @@ class UserService:
         result = await self.db.execute(query)
         user = result.scalar_one_or_none()
 
-        sites = [
-        su.site
-        for su in user.site_users
-        if su.site is not None
-        ]
+        if not user:
+            return None
 
-        roles = [
-            su.role
-            for su in user.site_users
-            if su.role is not None
-        ]
-        # Print l'objet user dans les logs pour vérifier les données chargées, notamment les rôles et sites associés
-
-        user.__dict__["sites"] = sites
-        user.__dict__["roles"] = roles
+        user.__dict__["sites"] = [su.site for su in user.site_users if su.site is not None]
+        user.__dict__["roles"] = [su.role for su in user.site_users if su.role is not None]
         return user
 
     async def get_user_by_username(self, username: str) -> Optional[User]:

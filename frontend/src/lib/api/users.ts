@@ -20,8 +20,6 @@ export interface CreateUserRequest {
   last_name: string;
   phone?: string;
   password: string;
-  roles: RoleCode[];
-  site_ids: string[];
 }
 
 export interface UpdateUserRequest {

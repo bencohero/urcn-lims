@@ -27,6 +27,7 @@ help:
 	@echo "  make docker-down  - Stop all Docker services"
 	@echo "  make docker-logs  - View Docker logs"
 	@echo "  make docker-build - Build Docker images"
+	@echo "  make dev-rebuild  - Rebuild and restart a specific service"
 	@echo ""
 	@echo "Cleanup:"
 	@echo "  make clean        - Clean generated files"
