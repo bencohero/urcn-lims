@@ -1,6 +1,6 @@
 """Document service."""
 
-from datetime import date
+from datetime import date, datetime
 from typing import List, Optional, Tuple
 from uuid import UUID
 
@@ -121,15 +121,40 @@ class DocumentService:
 
         return document
 
+    async def _generate_internal_code(self) -> str:
+        """Generate next DOC-YYYY-NNNNN code for the current year."""
+        year = datetime.now().year
+        prefix = f"DOC-{year}-"
+        result = await self.db.execute(
+            select(StoredItem.internal_code)
+            .where(
+                and_(
+                    StoredItem.item_type == "DOCUMENT",
+                    StoredItem.internal_code.like(f"{prefix}%"),
+                )
+            )
+        )
+        codes = result.scalars().all()
+        max_seq = 0
+        for code in codes:
+            try:
+                seq = int(code[len(prefix):])
+                if seq > max_seq:
+                    max_seq = seq
+            except (ValueError, TypeError):
+                pass
+        return f"{prefix}{max_seq + 1:05d}"
+
     async def create_document(
         self, document_data: DocumentCreate, user: User
     ) -> Document:
         """Create a new document."""
+        internal_code = document_data.internal_code or await self._generate_internal_code()
         document = Document(
             study_id=document_data.study_id,
             site_id=document_data.site_id,
             container_id=document_data.container_id,
-            internal_code=document_data.internal_code,
+            internal_code=internal_code,
             description=document_data.description,
             quantity=document_data.quantity,
             unit=document_data.unit,

@@ -27,7 +27,6 @@ const documentSchema = z.object({
   storage_date: z.string().min(1, 'Date de stockage requise'),
   expected_retention_until: z.string().optional(),
   description: z.string().optional(),
-  internal_code: z.string().optional(),
   physical_condition: z.enum(['GOOD', 'FAIR', 'DAMAGED']).optional(),
   location_notes: z.string().optional(),
   retention_category: z.string().optional(),
@@ -135,7 +134,6 @@ export function DocumentForm({ onSubmit, onCancel, loading, defaultValues }: Doc
       storage_date: data.storage_date,
       expected_retention_until: data.expected_retention_until || undefined,
       description: data.description || undefined,
-      internal_code: data.internal_code || undefined,
       physical_condition: data.physical_condition,
       location_notes: data.location_notes || undefined,
       retention_category: data.retention_category || undefined,
@@ -288,11 +286,12 @@ export function DocumentForm({ onSubmit, onCancel, loading, defaultValues }: Doc
             placeholder={selectedLocationId ? 'Selectionner un conteneur...' : "Choisir d'abord un emplacement"}
             disabled={!selectedLocationId}
           />
-          <Input
-            label="Code interne"
-            placeholder="Ex: DOC-2026-001"
-            {...register('internal_code')}
-          />
+          <div className="flex flex-col gap-1">
+            <span className="text-sm font-medium text-gray-700">Code interne</span>
+            <span className="flex h-9 items-center rounded-md border border-dashed border-gray-300 bg-gray-50 px-3 text-sm text-gray-400">
+              Genere automatiquement (DOC-{new Date().getFullYear()}-XXXXX)
+            </span>
+          </div>
           <Input
             label="Date de stockage"
             type="date"
