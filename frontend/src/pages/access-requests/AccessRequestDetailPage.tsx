@@ -235,7 +235,7 @@ export default function AccessRequestDetailPage() {
 
       <PageHeader
         title={`Demande ${ar.request_number}`}
-        description={`${REQUEST_TYPE_LABELS[ar.request_type] ?? ar.request_type} - ${ar.item?.description ?? ''}`}
+        description={`${REQUEST_TYPE_LABELS[ar.request_type] ?? ar.request_type} — ${ar.items?.length ?? 0} article(s)`}
         actions={
           <div className="flex items-center gap-2">
             <StatusBadge status={ar.status} />
@@ -435,20 +435,39 @@ export default function AccessRequestDetailPage() {
           </CardContent>
         </Card>
 
-        {/* Item */}
+        {/* Items */}
         <Card>
           <CardHeader>
             <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
               <Package className="h-4 w-4" />
-              Article concerne
+              Articles concernes
+              <span className="ml-auto text-xs font-normal text-gray-400">
+                {ar.items?.length ?? 0} article(s)
+              </span>
             </h3>
           </CardHeader>
           <CardContent>
-            <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
-              <InfoItem label="Type" value={ar.item?.type ?? '-'} />
-              <InfoItem label="Description" value={ar.item?.description ?? '-'} />
-              <InfoItem label="ID" value={ar.item?.id?.slice(0, 8) ?? '-'} />
-            </dl>
+            {(ar.items ?? []).length === 0 ? (
+              <p className="text-sm text-gray-400">Aucun article</p>
+            ) : (
+              <ul className="divide-y divide-gray-100">
+                {(ar.items ?? []).map((item) => (
+                  <li key={item.id} className="flex items-center gap-3 py-2 first:pt-0 last:pb-0">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {item.internal_code ?? item.id.slice(0, 8)}
+                      </p>
+                      {item.description && (
+                        <p className="text-xs text-gray-500 truncate">{item.description}</p>
+                      )}
+                    </div>
+                    <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+                      {item.type}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </CardContent>
         </Card>
 
@@ -566,12 +585,12 @@ export default function AccessRequestDetailPage() {
         open={modal === 'fulfill'}
         onOpenChange={(open) => !open && setModal(null)}
         title="Confirmer la remise"
-        description="L'article va etre marque comme remis au demandeur"
+        description="Les articles vont etre marques comme remis au demandeur"
       >
         <div className="space-y-4">
           <p className="text-sm text-gray-600">
-            Confirmez-vous que l'article{' '}
-            <span className="font-medium">{ar.item?.description}</span> a ete physiquement remis a{' '}
+            Confirmez-vous que les <span className="font-medium">{ar.items?.length ?? 0} article(s)</span>{' '}
+            ont ete physiquement remis a{' '}
             <span className="font-medium">{ar.requester.name}</span> ?
           </p>
           <div className="flex justify-end gap-3 pt-2">
@@ -588,12 +607,12 @@ export default function AccessRequestDetailPage() {
         open={modal === 'return'}
         onOpenChange={(open) => !open && setModal(null)}
         title="Enregistrer le retour"
-        description="L'article va etre marque comme retourne"
+        description="Les articles vont etre marques comme retournes"
       >
         <div className="space-y-4">
           <p className="text-sm text-gray-600">
-            Confirmez-vous que l'article{' '}
-            <span className="font-medium">{ar.item?.description}</span> a ete retourne par{' '}
+            Confirmez-vous que les <span className="font-medium">{ar.items?.length ?? 0} article(s)</span>{' '}
+            ont ete retournes par{' '}
             <span className="font-medium">{ar.requester.name}</span> ?
           </p>
           <div className="flex justify-end gap-3 pt-2">

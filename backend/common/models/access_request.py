@@ -4,9 +4,9 @@ AccessRequest model for document/equipment access workflow.
 
 import uuid
 from datetime import date, datetime
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -16,6 +16,33 @@ if TYPE_CHECKING:
     from .site import Site
     from .stored_item import StoredItem
     from .user import User
+
+
+class AccessRequestItem(BaseModel):
+    """Junction table: links multiple stored items to one access request."""
+
+    __tablename__ = "access_request_items"
+    __table_args__ = (
+        UniqueConstraint("access_request_id", "stored_item_id", name="uq_access_request_item"),
+    )
+
+    access_request_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("access_requests.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    stored_item_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("stored_items.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+
+    stored_item: Mapped["StoredItem"] = relationship("StoredItem", lazy="selectin")
+    access_request: Mapped["AccessRequest"] = relationship(
+        "AccessRequest", back_populates="request_items"
+    )
 
 
 class AccessRequest(BaseModel):
@@ -28,11 +55,11 @@ class AccessRequest(BaseModel):
         String(100), unique=True, nullable=False, index=True
     )
 
-    # Foreign keys
-    stored_item_id: Mapped[uuid.UUID] = mapped_column(
+    # Legacy single-item FK kept nullable for backward compat
+    stored_item_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("stored_items.id", ondelete="RESTRICT"),
-        nullable=False,
+        nullable=True,
         index=True,
     )
     requester_id: Mapped[uuid.UUID] = mapped_column(
@@ -99,14 +126,22 @@ class AccessRequest(BaseModel):
     meta_data: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB, nullable=True)
 
     # Relationships
-    stored_item: Mapped["StoredItem"] = relationship(
-        "StoredItem", back_populates="access_requests"
+    request_items: Mapped[List["AccessRequestItem"]] = relationship(
+        "AccessRequestItem",
+        back_populates="access_request",
+        cascade="all, delete-orphan",
+        lazy="selectin",
     )
     requester: Mapped["User"] = relationship("User", foreign_keys=[requester_id])
     requester_site: Mapped["Site"] = relationship("Site", foreign_keys=[requester_site_id])
     reviewer: Mapped[Optional["User"]] = relationship(
         "User", foreign_keys=[reviewed_by]
     )
+
+    @property
+    def items(self) -> List["StoredItem"]:
+        """All stored items linked to this request."""
+        return [ri.stored_item for ri in (self.request_items or []) if ri.stored_item]
 
     @property
     def is_pending(self) -> bool:

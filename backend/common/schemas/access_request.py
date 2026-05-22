@@ -1,7 +1,7 @@
 """Access request schemas."""
 
 from datetime import date, datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from pydantic import AliasChoices, Field
@@ -21,9 +21,9 @@ class AccessRequestBase(BaseSchema):
 
 
 class AccessRequestCreate(AccessRequestBase):
-    """Schema for creating an access request."""
+    """Schema for creating an access request with one or more items."""
 
-    stored_item_id: UUID
+    stored_item_ids: List[UUID] = Field(min_length=1)
     requester_site_id: UUID
 
 
@@ -67,6 +67,7 @@ class ItemSummary(BaseSchema):
     id: UUID
     type: str = Field(validation_alias=AliasChoices("item_type", "type"))
     description: Optional[str]
+    internal_code: Optional[str] = None
 
 
 class UserSummary(BaseSchema):
@@ -89,11 +90,8 @@ class AccessRequestResponse(IDTimestampSchema, AccessRequestBase):
 
     request_number: str
     status: str
-    stored_item_id: UUID
-    item: Optional[ItemSummary] = Field(
-        default=None,
-        validation_alias=AliasChoices("stored_item", "item"),
-    )
+    stored_item_id: Optional[UUID] = None
+    items: List[ItemSummary] = []
     requester: UserSummary
     requester_site: SiteSummary
     reviewed_by: Optional[UserSummary] = Field(

@@ -459,14 +459,17 @@ export interface AccessRequestSummary {
   requested_at: string;
 }
 
+export interface AccessRequestItemSummary {
+  id: string;
+  type: 'DOCUMENT' | 'EQUIPMENT' | 'CONSUMABLE';
+  description?: string | null;
+  internal_code?: string | null;
+}
+
 export interface AccessRequest {
   id: string;
   request_number: string;
-  item: {
-    id: string;
-    type: 'DOCUMENT' | 'EQUIPMENT' | 'CONSUMABLE';
-    description: string;
-  };
+  items: AccessRequestItemSummary[];
   requester: {
     id: string;
     name: string;
@@ -499,7 +502,7 @@ export interface AccessRequest {
 }
 
 export interface CreateAccessRequestRequest {
-  stored_item_id: string;
+  stored_item_ids: string[];
   requester_site_id: string;
   request_type: RequestType;
   purpose: string;

@@ -17,7 +17,7 @@ from .document import Document
 from .equipment import Equipment
 from .consumable import Consumable
 from .movement import Movement
-from .access_request import AccessRequest
+from .access_request import AccessRequest, AccessRequestItem
 from .notification import Notification
 from .audit_trail import AuditTrail
 from .system_settings import SystemSettings
@@ -41,6 +41,7 @@ __all__ = [
     "Consumable",
     "Movement",
     "AccessRequest",
+    "AccessRequestItem",
     "Notification",
     "AuditTrail",
     "SystemSettings",

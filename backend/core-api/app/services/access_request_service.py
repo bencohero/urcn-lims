@@ -5,12 +5,12 @@ from typing import List, Optional, Tuple
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 
-from common.models import AccessRequest, StoredItem, User
+from common.models import AccessRequest, AccessRequestItem, StoredItem, User
 from common.schemas.access_request import (
     AccessRequestApprove,
     AccessRequestCreate,
@@ -24,6 +24,26 @@ from common.config import get_settings
 from .audit_service import AuditService
 
 settings = get_settings()
+
+_ADMIN_ROLES = {"ADMIN", "ARCHIVIST"}
+
+
+def _can_see_all(user: User) -> bool:
+    """True for superusers, admins, and archivists — they see every request."""
+    if user.is_superuser:
+        return True
+    checker = PermissionChecker(user)
+    return any(checker.has_role(r) for r in _ADMIN_ROLES)
+
+
+def _base_query():
+    return select(AccessRequest).options(
+        selectinload(AccessRequest.request_items).selectinload(AccessRequestItem.stored_item),
+        selectinload(AccessRequest.requester),
+        selectinload(AccessRequest.requester_site),
+        selectinload(AccessRequest.reviewer),
+    )
+
 
 class AccessRequestService:
     """Service for access request workflow operations."""
@@ -57,13 +77,7 @@ class AccessRequestService:
         user: User = None,
     ) -> Tuple[List[AccessRequest], int]:
         """Get access requests with filters and pagination."""
-        from sqlalchemy import or_
-        query = select(AccessRequest).options(
-            selectinload(AccessRequest.stored_item),
-            selectinload(AccessRequest.requester),
-            selectinload(AccessRequest.requester_site),
-            selectinload(AccessRequest.reviewer),
-        )
+        query = _base_query()
 
         filters = []
         if status_filter:
@@ -71,7 +85,11 @@ class AccessRequestService:
         if requester_id:
             filters.append(AccessRequest.requester_id == requester_id)
         if stored_item_id:
-            filters.append(AccessRequest.stored_item_id == stored_item_id)
+            item_subq = (
+                select(AccessRequestItem.access_request_id)
+                .where(AccessRequestItem.stored_item_id == stored_item_id)
+            )
+            filters.append(AccessRequest.id.in_(item_subq))
         if urgency:
             filters.append(AccessRequest.urgency == urgency)
         if search:
@@ -82,55 +100,52 @@ class AccessRequestService:
                 )
             )
 
-        # RLS filter
-        if user and not user.is_superuser:
-            checker = PermissionChecker(user)
-            filters.append(AccessRequest.requester_site_id.in_(checker.site_ids))
+        # Visibility filter
+        if user:
+            if _can_see_all(user):
+                # Admins/archivists: RLS by site
+                if not user.is_superuser:
+                    checker = PermissionChecker(user)
+                    filters.append(AccessRequest.requester_site_id.in_(checker.site_ids))
+            else:
+                # Regular users: only their own requests
+                filters.append(AccessRequest.requester_id == user.id)
 
         if filters:
             query = query.where(and_(*filters))
 
-        # Count
         count_query = select(func.count()).select_from(AccessRequest)
         if filters:
             count_query = count_query.where(and_(*filters))
         total_result = await self.db.execute(count_query)
         total = total_result.scalar()
 
-        # Pagination
         offset = (page - 1) * page_size
         query = query.offset(offset).limit(page_size).order_by(
             AccessRequest.requested_at.desc()
         )
 
         result = await self.db.execute(query)
-        requests = result.scalars().all()
-
-        # add logging for debugging
-        print(f"Request returned: {len(requests)}")
-
-        return requests, total
+        return result.scalars().all(), total
 
     async def get_access_request_by_id(
         self, request_id: UUID, user: User
     ) -> Optional[AccessRequest]:
-        """Get access request by ID."""
-        query = (
-            select(AccessRequest)
-            .where(AccessRequest.id == request_id)
-            .options(
-                selectinload(AccessRequest.stored_item),
-                selectinload(AccessRequest.requester),
-                selectinload(AccessRequest.requester_site),
-                selectinload(AccessRequest.reviewer),
-            )
-        )
+        """Get access request by ID with visibility check."""
+        query = _base_query().where(AccessRequest.id == request_id)
         result = await self.db.execute(query)
         access_request = result.scalar_one_or_none()
 
-        if access_request and not user.is_superuser:
-            checker = PermissionChecker(user)
-            if access_request.requester_site_id not in checker.site_ids:
+        if not access_request:
+            return None
+
+        if _can_see_all(user):
+            if not user.is_superuser:
+                checker = PermissionChecker(user)
+                if access_request.requester_site_id not in checker.site_ids:
+                    return None
+        else:
+            if access_request.requester_id != user.id:
                 return None
 
         return access_request
@@ -138,23 +153,23 @@ class AccessRequestService:
     async def create_access_request(
         self, request_data: AccessRequestCreate, user: User
     ) -> AccessRequest:
-        """Create a new access request."""
-        # Verify stored item exists
-        item_result = await self.db.execute(
-            select(StoredItem).where(StoredItem.id == request_data.stored_item_id)
+        """Create a new access request with one or more items."""
+        # Verify all items exist
+        items_result = await self.db.execute(
+            select(StoredItem).where(StoredItem.id.in_(request_data.stored_item_ids))
         )
-        stored_item = item_result.scalar_one_or_none()
-        if not stored_item:
+        found_items = items_result.scalars().all()
+        if len(found_items) != len(request_data.stored_item_ids):
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Stored item not found",
+                detail="One or more stored items not found",
             )
 
         request_number = await self._generate_request_number()
 
         access_request = AccessRequest(
             request_number=request_number,
-            stored_item_id=request_data.stored_item_id,
+            stored_item_id=request_data.stored_item_ids[0],  # legacy field
             requester_id=user.id,
             requester_site_id=request_data.requester_site_id,
             request_type=request_data.request_type,
@@ -165,6 +180,13 @@ class AccessRequestService:
             requested_at=datetime.utcnow(),
         )
         self.db.add(access_request)
+        await self.db.flush()  # get access_request.id before creating items
+
+        for item_id in request_data.stored_item_ids:
+            self.db.add(AccessRequestItem(
+                access_request_id=access_request.id,
+                stored_item_id=item_id,
+            ))
 
         await self.audit_service.log_action(
             event_type="CREATE",
@@ -172,12 +194,15 @@ class AccessRequestService:
             record_id=access_request.id,
             user_id=user.id,
             new_values=request_data.model_dump(mode="json"),
-            action=f"Access request {request_number} created",
+            action=f"Access request {request_number} created for {len(request_data.stored_item_ids)} item(s)",
         )
 
         await self.db.commit()
-        await self.db.refresh(access_request)
-        return access_request
+
+        result = await self.db.execute(
+            _base_query().where(AccessRequest.id == access_request.id)
+        )
+        return result.scalar_one()
 
     async def approve_request(
         self, request_id: UUID, approval_data: AccessRequestApprove, user: User
@@ -256,7 +281,7 @@ class AccessRequestService:
     async def fulfill_request(
         self, request_id: UUID, user: User
     ) -> Optional[AccessRequest]:
-        """Mark an approved request as fulfilled (item handed over)."""
+        """Mark an approved request as fulfilled (all items handed over)."""
         access_request = await self.get_access_request_by_id(request_id, user)
         if not access_request:
             return None
@@ -270,10 +295,9 @@ class AccessRequestService:
         access_request.status = "FULFILLED"
         access_request.actual_access_date = datetime.utcnow()
 
-        # Update stored item status
-        stored_item = access_request.stored_item
-        if stored_item:
-            stored_item.status = "OUT"
+        for req_item in access_request.request_items:
+            if req_item.stored_item:
+                req_item.stored_item.status = "OUT"
 
         await self.audit_service.log_action(
             event_type="UPDATE",
@@ -292,7 +316,7 @@ class AccessRequestService:
     async def return_item(
         self, request_id: UUID, return_data: AccessRequestReturn, user: User
     ) -> Optional[AccessRequest]:
-        """Record item return for a fulfilled request."""
+        """Record return for a fulfilled request (all items back)."""
         access_request = await self.get_access_request_by_id(request_id, user)
         if not access_request:
             return None
@@ -306,10 +330,9 @@ class AccessRequestService:
         access_request.status = "RETURNED"
         access_request.actual_return_date = return_data.actual_return_date.date()
 
-        # Update stored item status back
-        stored_item = access_request.stored_item
-        if stored_item:
-            stored_item.status = "IN_STORAGE"
+        for req_item in access_request.request_items:
+            if req_item.stored_item:
+                req_item.stored_item.status = "IN_STORAGE"
 
         await self.audit_service.log_action(
             event_type="UPDATE",
@@ -318,7 +341,7 @@ class AccessRequestService:
             user_id=user.id,
             old_values={"status": access_request.status},
             new_values={"status": "RETURNED", "actual_return_date": str(return_data.actual_return_date)},
-            action=f"Item returned for request {access_request.request_number}",
+            action=f"Items returned for request {access_request.request_number}",
         )
 
         await self.db.commit()
@@ -393,7 +416,6 @@ class AccessRequestService:
                 + timedelta(days=access_request.extension_days)
             )
 
-        # If was overdue, revert to fulfilled
         if access_request.status == "OVERDUE":
             access_request.status = "FULFILLED"
 

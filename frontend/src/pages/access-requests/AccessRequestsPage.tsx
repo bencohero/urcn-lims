@@ -58,13 +58,24 @@ const columns: Column<AccessRequest>[] = [
   },
   {
     key: 'item',
-    header: 'Article',
-    render: (ar) => (
-      <div>
-        <p className="text-sm text-gray-900 truncate max-w-xs">{ar.item?.description ?? '-'}</p>
-        <p className="text-xs text-gray-500">{ar.item?.type}</p>
-      </div>
-    ),
+    header: 'Articles',
+    render: (ar) => {
+      const items = ar.items ?? [];
+      if (items.length === 0) return <span className="text-gray-400">—</span>;
+      return (
+        <div className="space-y-0.5">
+          {items.slice(0, 2).map((item) => (
+            <p key={item.id} className="text-sm text-gray-900 truncate max-w-xs">
+              {item.internal_code ?? item.id.slice(0, 8)}
+              <span className="ml-1 text-xs text-gray-400">({item.type})</span>
+            </p>
+          ))}
+          {items.length > 2 && (
+            <p className="text-xs text-gray-500">+{items.length - 2} autre(s)</p>
+          )}
+        </div>
+      );
+    },
   },
   {
     key: 'request_type',
@@ -144,7 +155,7 @@ export default function AccessRequestsPage() {
   };
 
   const handleCreate = (formData: {
-    item_id: string;
+    item_ids: string[];
     request_type: RequestType;
     urgency: Urgency;
     reason: string;
@@ -158,7 +169,7 @@ export default function AccessRequestsPage() {
 
     createRequest.mutate(
       {
-        stored_item_id: formData.item_id,
+        stored_item_ids: formData.item_ids,
         requester_site_id: primarySiteId,
         request_type: formData.request_type,
         purpose: formData.reason,
