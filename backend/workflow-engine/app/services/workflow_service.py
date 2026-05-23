@@ -14,6 +14,7 @@ sys.path.insert(0, "/home/skamboule/claude-code/urcn-lims/backend")
 
 from common.config import get_settings
 from common.models import AccessRequest, StoredItem, User
+from common.models.access_request import AccessRequestItem
 from common.schemas.access_request import (
     AccessRequestApprove,
     AccessRequestCreate,
@@ -26,6 +27,24 @@ from common.utils.logger import get_logger
 
 settings = get_settings()
 logger = get_logger(__name__)
+
+_ADMIN_ROLES = {"ADMIN", "ARCHIVIST"}
+
+
+def _can_see_all(user: User) -> bool:
+    if user.is_superuser:
+        return True
+    checker = PermissionChecker(user)
+    return any(checker.has_role(r) for r in _ADMIN_ROLES)
+
+
+def _base_options():
+    return [
+        selectinload(AccessRequest.requester),
+        selectinload(AccessRequest.requester_site),
+        selectinload(AccessRequest.reviewer),
+        selectinload(AccessRequest.request_items).selectinload(AccessRequestItem.stored_item),
+    ]
 
 
 class WorkflowService:
@@ -48,16 +67,10 @@ class WorkflowService:
         return target in self.VALID_TRANSITIONS.get(current, [])
 
     async def _load_with_relations(self, request_id: UUID) -> Optional[AccessRequest]:
-        """Reload an access request with all relationships eagerly loaded."""
         result = await self.db.execute(
             select(AccessRequest)
             .where(AccessRequest.id == request_id)
-            .options(
-                selectinload(AccessRequest.requester),
-                selectinload(AccessRequest.stored_item),
-                selectinload(AccessRequest.requester_site),
-                selectinload(AccessRequest.reviewer),
-            )
+            .options(*_base_options())
         )
         return result.scalar_one_or_none()
 
@@ -85,15 +98,8 @@ class WorkflowService:
         page_size: int = 50,
         user: Optional[User] = None,
     ) -> Tuple[List[AccessRequest], int]:
-        """Get access requests with filters and pagination."""
-        query = select(AccessRequest).options(
-            selectinload(AccessRequest.requester),
-            selectinload(AccessRequest.stored_item),
-            selectinload(AccessRequest.requester_site),
-            selectinload(AccessRequest.reviewer),
-        )
-
         filters = []
+
         if status_filter:
             filters.append(AccessRequest.status == status_filter)
         if requester_id:
@@ -113,18 +119,23 @@ class WorkflowService:
             )
         if from_date:
             filters.append(AccessRequest.requested_at >= datetime.fromisoformat(from_date))
-        if user and not user.is_superuser:
-            checker = PermissionChecker(user)
-            filters.append(AccessRequest.requester_site_id.in_(checker.site_ids))
+
+        if user:
+            if _can_see_all(user):
+                if not user.is_superuser:
+                    checker = PermissionChecker(user)
+                    filters.append(AccessRequest.requester_site_id.in_(checker.site_ids))
+            else:
+                filters.append(AccessRequest.requester_id == user.id)
+
+        query = select(AccessRequest).options(*_base_options())
+        count_query = select(func.count()).select_from(AccessRequest)
 
         if filters:
             query = query.where(and_(*filters))
-
-        count_query = select(func.count()).select_from(AccessRequest)
-        if filters:
             count_query = count_query.where(and_(*filters))
-        total = (await self.db.execute(count_query)).scalar()
 
+        total = (await self.db.execute(count_query)).scalar()
         offset = (page - 1) * page_size
         query = query.offset(offset).limit(page_size).order_by(AccessRequest.requested_at.desc())
         requests = (await self.db.execute(query)).scalars().all()
@@ -134,21 +145,16 @@ class WorkflowService:
     async def get_access_request_by_id(
         self, request_id: UUID, user: User
     ) -> Optional[AccessRequest]:
-        """Get access request by ID."""
-        query = (
+        result = await self.db.execute(
             select(AccessRequest)
             .where(AccessRequest.id == request_id)
-            .options(
-                selectinload(AccessRequest.requester),
-                selectinload(AccessRequest.stored_item),
-                selectinload(AccessRequest.requester_site),
-                selectinload(AccessRequest.reviewer),
-            )
+            .options(*_base_options())
         )
-        result = await self.db.execute(query)
         access_request = result.scalar_one_or_none()
+        if not access_request:
+            return None
 
-        if access_request and not user.is_superuser:
+        if not _can_see_all(user) and access_request.requester_id != user.id:
             checker = PermissionChecker(user)
             if access_request.requester_site_id not in checker.site_ids:
                 return None
@@ -158,21 +164,22 @@ class WorkflowService:
     async def create_access_request(
         self, request_data: AccessRequestCreate, user: User
     ) -> AccessRequest:
-        """Create a new access request."""
-        item_result = await self.db.execute(
-            select(StoredItem).where(StoredItem.id == request_data.stored_item_id)
-        )
-        if not item_result.scalar_one_or_none():
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Stored item not found",
+        # Validate all items exist
+        for item_id in request_data.stored_item_ids:
+            item_result = await self.db.execute(
+                select(StoredItem).where(StoredItem.id == item_id)
             )
+            if not item_result.scalar_one_or_none():
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Stored item {item_id} not found",
+                )
 
         request_number = await self._generate_request_number()
 
         access_request = AccessRequest(
             request_number=request_number,
-            stored_item_id=request_data.stored_item_id,
+            stored_item_id=request_data.stored_item_ids[0],
             requester_id=user.id,
             requester_site_id=request_data.requester_site_id,
             request_type=request_data.request_type,
@@ -183,6 +190,14 @@ class WorkflowService:
             requested_at=datetime.utcnow(),
         )
         self.db.add(access_request)
+        await self.db.flush()
+
+        for item_id in request_data.stored_item_ids:
+            self.db.add(AccessRequestItem(
+                access_request_id=access_request.id,
+                stored_item_id=item_id,
+            ))
+
         await self.db.commit()
 
         logger.info(
@@ -196,7 +211,6 @@ class WorkflowService:
     async def approve_request(
         self, request_id: UUID, approve_data: AccessRequestApprove, user: User
     ) -> Optional[AccessRequest]:
-        """Approve an access request."""
         access_request = await self.get_access_request_by_id(request_id, user)
         if not access_request:
             return None
@@ -223,7 +237,6 @@ class WorkflowService:
     async def reject_request(
         self, request_id: UUID, reject_data: AccessRequestReject, user: User
     ) -> Optional[AccessRequest]:
-        """Reject an access request."""
         access_request = await self.get_access_request_by_id(request_id, user)
         if not access_request:
             return None
@@ -245,7 +258,6 @@ class WorkflowService:
     async def fulfill_request(
         self, request_id: UUID, user: User
     ) -> Optional[AccessRequest]:
-        """Mark an approved request as fulfilled (item handed over)."""
         access_request = await self.get_access_request_by_id(request_id, user)
         if not access_request:
             return None
@@ -259,8 +271,9 @@ class WorkflowService:
         access_request.status = "FULFILLED"
         access_request.actual_access_date = datetime.utcnow()
 
-        if access_request.stored_item:
-            access_request.stored_item.status = "OUT"
+        for req_item in access_request.request_items:
+            if req_item.stored_item:
+                req_item.stored_item.status = "OUT"
 
         await self.db.commit()
         return await self._load_with_relations(access_request.id)
@@ -268,7 +281,6 @@ class WorkflowService:
     async def return_item(
         self, request_id: UUID, return_data: AccessRequestReturn, user: User
     ) -> Optional[AccessRequest]:
-        """Record item return for a fulfilled request."""
         access_request = await self.get_access_request_by_id(request_id, user)
         if not access_request:
             return None
@@ -282,8 +294,9 @@ class WorkflowService:
         access_request.status = "RETURNED"
         access_request.actual_return_date = return_data.actual_return_date.date()
 
-        if access_request.stored_item:
-            access_request.stored_item.status = "IN_STORAGE"
+        for req_item in access_request.request_items:
+            if req_item.stored_item:
+                req_item.stored_item.status = "IN_STORAGE"
 
         await self.db.commit()
         return await self._load_with_relations(access_request.id)
@@ -291,7 +304,6 @@ class WorkflowService:
     async def request_extension(
         self, request_id: UUID, extension_data: AccessRequestExtend, user: User
     ) -> Optional[AccessRequest]:
-        """Request an extension for a fulfilled access request."""
         access_request = await self.get_access_request_by_id(request_id, user)
         if not access_request:
             return None
@@ -324,7 +336,6 @@ class WorkflowService:
     async def approve_extension(
         self, request_id: UUID, user: User
     ) -> Optional[AccessRequest]:
-        """Approve a pending extension request."""
         access_request = await self.get_access_request_by_id(request_id, user)
         if not access_request:
             return None
@@ -351,7 +362,6 @@ class WorkflowService:
     async def cancel_request(
         self, request_id: UUID, user: User
     ) -> Optional[AccessRequest]:
-        """Cancel a pending or approved access request."""
         access_request = await self.get_access_request_by_id(request_id, user)
         if not access_request:
             return None

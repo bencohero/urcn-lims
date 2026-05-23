@@ -3,6 +3,7 @@
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
 
+from fastapi.encoders import jsonable_encoder
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -200,7 +201,7 @@ class SiteService:
         if not site:
             return None
 
-        update_data = site_data.model_dump(exclude_unset=True)
+        update_data = site_data.model_dump(exclude_unset=True, mode="json")
         old_values = {k: getattr(site, k) for k in update_data.keys()}
 
         for key, value in update_data.items():
@@ -213,7 +214,7 @@ class SiteService:
             table_name="sites",
             record_id=site.id,
             user_id=user.id,
-            old_values=old_values,
+            old_values=jsonable_encoder(old_values),
             new_values=update_data,
         )
 

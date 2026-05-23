@@ -13,7 +13,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .base import BaseModel
 
 if TYPE_CHECKING:
-    from .access_request import AccessRequest
     from .container import Container
     from .movement import Movement
     from .site import Site
@@ -104,9 +103,6 @@ class StoredItem(BaseModel):
     )
     movements: Mapped[List["Movement"]] = relationship(
         "Movement", back_populates="stored_item", lazy="selectin"
-    )
-    access_requests: Mapped[List["AccessRequest"]] = relationship(
-        "AccessRequest", back_populates="stored_item", lazy="noload"
     )
 
     @property
