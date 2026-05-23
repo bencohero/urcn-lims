@@ -108,7 +108,6 @@ class DocumentService:
                 selectinload(Document.site),
                 selectinload(Document.container).selectinload(Container.location),
                 selectinload(Document.movements),
-                selectinload(Document.access_requests),
             )
         )
         result = await self.db.execute(query)
