@@ -1,6 +1,7 @@
 """FastAPI authentication dependencies."""
 
 from typing import Optional
+from uuid import UUID
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -109,11 +110,12 @@ async def get_current_user_optional(
         return None
 
 
-def require_permission(resource: str, action: str):
+def require_permission(site_id: Optional[UUID], resource: str, action: str):
     """
     Dependency factory for permission checking.
 
     Args:
+        site_id: Site UUID to check (can be None for global permissions)
         resource: Resource name (e.g., 'documents')
         action: Action name (e.g., 'create', 'read', 'update', 'delete')
 
@@ -128,21 +130,22 @@ def require_permission(resource: str, action: str):
         current_user: User = Depends(get_current_user),
     ) -> User:
         checker = PermissionChecker(current_user)
-        if not checker.has_permission(resource, action):
+        if not checker.has_permission(site_id, resource, action):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Permission denied: {resource}:{action}",
+                detail=f"Permission denied: {site_id}:{resource}:{action}",
             )
         return current_user
 
     return permission_checker
 
 
-def require_role(role_code: str):
+def require_role(site_id: Optional[UUID], role_code: str):
     """
     Dependency factory for role checking.
 
     Args:
+        site_id: Site UUID to check (can be None for global roles)
         role_code: Required role code
 
     Returns:
@@ -156,7 +159,7 @@ def require_role(role_code: str):
         current_user: User = Depends(get_current_user),
     ) -> User:
         checker = PermissionChecker(current_user)
-        if not checker.has_role(role_code):
+        if not checker.has_role(site_id, role_code):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Role required: {role_code}",

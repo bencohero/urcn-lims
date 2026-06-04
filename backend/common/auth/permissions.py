@@ -15,23 +15,25 @@ class PermissionChecker:
 
     def __init__(self, user: "User"):
         self.user = user
-        self._permissions_cache: Optional[dict] = None
+        self._permissions_cache: Optional[dict[dict]] = None
         self._site_ids_cache: Optional[Set[UUID]] = None
 
     @property
     def permissions(self) -> dict:
         """Get aggregated permissions from all user roles."""
         if self._permissions_cache is None:
-            self._permissions_cache = {}
+            self._permissions_cache.setdefault("*", {})  # Initialize wildcard permissions
             for site_user in self.user.site_users:
-                if site_user.is_active and site_user.role:
+            
+                if site_user.is_active and site_user.role and site_user.site:
+                    self._permissions_cache.setdefault(site_user.site_id, {})  # Initialize site-specific permissions
                     for resource, actions in site_user.role.permissions.items():
-                        if resource not in self._permissions_cache:
-                            self._permissions_cache[resource] = {}
+                        if resource not in self._permissions_cache.get(site_user.site_id, {}):
+                            self._permissions_cache[site_user.site_id][resource] = {}
                         if isinstance(actions, dict):
                             for action, granted in actions.items():
                                 if granted:
-                                    self._permissions_cache[resource][action] = True
+                                    self._permissions_cache[site_user.site_id][resource][action] = True
         return self._permissions_cache
 
     @property
@@ -43,11 +45,12 @@ class PermissionChecker:
             }
         return self._site_ids_cache
 
-    def has_permission(self, resource: str, action: str) -> bool:
+    def has_permission(self, site_id: Optional[UUID], resource: str, action: str) -> bool:
         """
         Check if user has permission for a resource action.
 
         Args:
+            site_id: Site UUID to check (can be None for global permissions)
             resource: Resource name (e.g., 'documents', 'equipment')
             action: Action name (e.g., 'create', 'read', 'update', 'delete')
 
@@ -56,20 +59,29 @@ class PermissionChecker:
         """
         if self.user.is_superuser:
             return True
+        
+        if site_id is None:
+            # Check global wildcard permission
+            if "*" in self.permissions.get("*", {}):
+                if self.permissions["*"].get(action, False):
+                    return True
+            # Check global specific resource
+            return self.permissions.get("*", {}).get(resource, {}).get(action, False)
 
         # Check wildcard permission
-        if "*" in self.permissions:
-            if self.permissions["*"].get(action, False):
+        if "*" in self.permissions.get(site_id, {}):
+            if self.permissions[site_id]["*"].get(action, False):
                 return True
 
         # Check specific resource
-        return self.permissions.get(resource, {}).get(action, False)
-
-    def has_role(self, role_code: str) -> bool:
+        return self.permissions.get(site_id, {}).get(resource, {}).get(action, False)
+    
+    def has_role(self, site_id: Optional[UUID], role_code: str) -> bool:
         """
         Check if user has a specific role.
 
         Args:
+            site_id: Site UUID to check (can be None for global roles)
             role_code: Role code to check
 
         Returns:
@@ -77,11 +89,17 @@ class PermissionChecker:
         """
         if self.user.is_superuser:
             return True
-
-        for site_user in self.user.site_users:
-            if site_user.is_active and site_user.role:
-                if site_user.role.code == role_code:
-                    return True
+        
+        if site_id is not None:
+            for site_user in self.user.site_users:
+                if site_user.is_active and site_user.site_id == site_id and site_user.role:
+                    if site_user.role.code == role_code:
+                        return True
+        else:
+            for site_user in self.user.site_users:
+                if site_user.is_active and site_user.role:
+                    if site_user.role.code == role_code:
+                        return True
         return False
 
     def has_site_access(self, site_id: UUID) -> bool:
@@ -113,7 +131,7 @@ class PermissionChecker:
         return [sid for sid in site_ids if sid in self.site_ids]
 
 
-def has_permission(user: "User", resource: str, action: str) -> bool:
+def has_permission(user: "User", site_id: Optional[UUID], resource: str, action: str) -> bool:
     """
     Check if user has permission for a resource action.
 
@@ -126,7 +144,9 @@ def has_permission(user: "User", resource: str, action: str) -> bool:
         True if permission is granted
     """
     checker = PermissionChecker(user)
-    return checker.has_permission(resource, action)
+    if not checker.has_site_access():
+        return False
+    return checker.has_permission(site_id, resource, action)
 
 
 def has_role(user: "User", role_code: str) -> bool:
