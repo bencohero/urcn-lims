@@ -2,10 +2,11 @@
 
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
+import uuid as uuid_lib
 from uuid import UUID
 
 from jose import JWTError, jwt
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from common.config import get_settings
 
@@ -39,7 +40,9 @@ def create_access_token(
         Encoded JWT access token
     """
     if expires_delta is None:
-        expires_delta = timedelta(minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
+        expires_delta = timedelta(
+            minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES
+        )
 
     now = datetime.now(timezone.utc)
     expire = now + expires_delta
@@ -47,8 +50,9 @@ def create_access_token(
     to_encode = {
         "sub": str(user_id),
         "exp": expire,
-        "iat": now,
+        "iat": now.timestamp(),
         "type": "access",
+        "jti": str(uuid_lib.uuid4()),
     }
 
     if additional_claims:
@@ -82,12 +86,10 @@ def create_refresh_token(
     now = datetime.now(timezone.utc)
     expire = now + expires_delta
 
-    import uuid as uuid_lib
-
     to_encode = {
         "sub": str(user_id),
         "exp": expire,
-        "iat": now,
+        "iat": now.timestamp(),
         "type": "refresh",
         "jti": str(uuid_lib.uuid4()),  # Unique ID for revocation
     }
@@ -117,7 +119,7 @@ def decode_token(token: str) -> Optional[TokenPayload]:
             algorithms=[settings.JWT_ALGORITHM],
         )
         return TokenPayload(**payload)
-    except JWTError:
+    except (JWTError, ValidationError):
         return None
 
 

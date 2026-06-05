@@ -110,7 +110,7 @@ async def get_current_user_optional(
         return None
 
 
-def require_permission(site_id: Optional[UUID], resource: str, action: str):
+def require_permission(resource: str, action: str, site_id: Optional[UUID]= None):
     """
     Dependency factory for permission checking.
 
@@ -130,7 +130,7 @@ def require_permission(site_id: Optional[UUID], resource: str, action: str):
         current_user: User = Depends(get_current_user),
     ) -> User:
         checker = PermissionChecker(current_user)
-        if not checker.has_permission(site_id, resource, action):
+        if not checker.has_permission(resource, action, site_id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Permission denied: {site_id}:{resource}:{action}",
@@ -140,7 +140,7 @@ def require_permission(site_id: Optional[UUID], resource: str, action: str):
     return permission_checker
 
 
-def require_role(site_id: Optional[UUID], role_code: str):
+def require_role(role_code: str, site_id: Optional[UUID]= None):
     """
     Dependency factory for role checking.
 
@@ -159,7 +159,7 @@ def require_role(site_id: Optional[UUID], role_code: str):
         current_user: User = Depends(get_current_user),
     ) -> User:
         checker = PermissionChecker(current_user)
-        if not checker.has_role(site_id, role_code):
+        if not checker.has_role(role_code, site_id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Role required: {role_code}",

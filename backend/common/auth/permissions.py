@@ -45,7 +45,7 @@ class PermissionChecker:
             }
         return self._site_ids_cache
 
-    def has_permission(self, site_id: Optional[UUID], resource: str, action: str) -> bool:
+    def has_permission(self, resource: str, action: str, site_id: Optional[UUID]= None) -> bool:
         """
         Check if user has permission for a resource action.
 
@@ -76,7 +76,7 @@ class PermissionChecker:
         # Check specific resource
         return self.permissions.get(site_id, {}).get(resource, {}).get(action, False)
     
-    def has_role(self, site_id: Optional[UUID], role_code: str) -> bool:
+    def has_role(self, role_code: str, site_id: Optional[UUID]= None) -> bool:
         """
         Check if user has a specific role.
 
@@ -131,7 +131,7 @@ class PermissionChecker:
         return [sid for sid in site_ids if sid in self.site_ids]
 
 
-def has_permission(user: "User", site_id: Optional[UUID], resource: str, action: str) -> bool:
+def has_permission(user: "User", resource: str, action: str, site_id: Optional[UUID]= None) -> bool:
     """
     Check if user has permission for a resource action.
 
@@ -146,10 +146,10 @@ def has_permission(user: "User", site_id: Optional[UUID], resource: str, action:
     checker = PermissionChecker(user)
     if not checker.has_site_access():
         return False
-    return checker.has_permission(site_id, resource, action)
+    return checker.has_permission(resource, action, site_id)
 
 
-def has_role(user: "User", role_code: str) -> bool:
+def has_role(user: "User", role_code: str, site_id: Optional[UUID]= None) -> bool:
     """
     Check if user has a specific role.
 
@@ -161,7 +161,9 @@ def has_role(user: "User", role_code: str) -> bool:
         True if user has the role
     """
     checker = PermissionChecker(user)
-    return checker.has_role(role_code)
+    if site_id is not None and not checker.has_site_access(site_id):
+        return False
+    return checker.has_role(role_code, site_id)
 
 
 async def filter_by_user_sites(

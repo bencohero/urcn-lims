@@ -385,11 +385,11 @@ export default function AccessRequestDetailPage() {
             <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
               <ClipboardList className="h-4 w-4" />
               Details de la demande
-              {user && (
+              {/* {user && (
                 <Badge variant="default" className="ml-auto">
                   roles: {user.roles.map((r) => r.name).join(', ')}
                 </Badge>
-              )}
+              )} */}
             </h3>
           </CardHeader>
           <CardContent>

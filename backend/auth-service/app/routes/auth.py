@@ -1,13 +1,13 @@
 """Authentication routes."""
 
-from datetime import datetime
-from typing import Optional
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
-from common.database import get_db
+from common.database import get_db, get_redis
 from common.models import User
 from common.schemas.user import (
     ChangePasswordRequest,
@@ -18,7 +18,11 @@ from common.schemas.user import (
 )
 from common.schemas.response import APIResponse
 from common.auth.dependencies import get_current_user
-from common.auth.jwt import create_access_token, create_refresh_token, verify_token
+from common.auth.jwt import (
+    create_access_token,
+    create_refresh_token,
+    decode_token,
+)
 from common.config import get_settings
 
 from ..services.auth_service import AuthService
@@ -79,14 +83,26 @@ async def login(
 async def refresh_token(
     refresh_data: RefreshTokenRequest,
     db: AsyncSession = Depends(get_db),
+    redis_client: Redis = Depends(get_redis),
 ):
     """
     Refresh access token using refresh token.
     """
-    token_service = TokenService(db)
+    token_service = TokenService(db, redis_client)
+    payload = decode_token(refresh_data.refresh_token)
+    if (
+        payload is None
+        or payload.type != "refresh"
+        or await token_service.is_token_revoked(payload)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token",
+        )
 
-    user_id = verify_token(refresh_data.refresh_token, token_type="refresh")
-    if not user_id:
+    try:
+        user_id = UUID(payload.sub)
+    except ValueError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired refresh token",
@@ -116,11 +132,12 @@ async def refresh_token(
 async def logout(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    redis_client: Redis = Depends(get_redis),
 ):
     """
     Logout user and invalidate tokens.
     """
-    token_service = TokenService(db)
+    token_service = TokenService(db, redis_client)
     await token_service.invalidate_user_tokens(current_user.id)
     return None
 
@@ -144,6 +161,7 @@ async def change_password(
     password_data: ChangePasswordRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    redis_client: Redis = Depends(get_redis),
 ):
     """
     Change user password.
@@ -167,6 +185,9 @@ async def change_password(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Current password is incorrect",
         )
+
+    token_service = TokenService(db, redis_client)
+    await token_service.invalidate_user_tokens(current_user.id)
 
     return APIResponse(
         success=True,

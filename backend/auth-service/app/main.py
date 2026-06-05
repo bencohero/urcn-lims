@@ -6,18 +6,19 @@ Port: 8000
 
 from contextlib import asynccontextmanager
 
+import redis.asyncio as redis
+
 from fastapi import FastAPI
 from fastapi.middleware.gzip import GZipMiddleware
 
-import sys
 
 from sqlalchemy import text
-sys.path.insert(0, "/home/skamboule/claude-code/urcn-lims/backend")
 
 from common.config import get_settings
 from common.database import init_db, close_db
 from common.middleware import setup_cors, setup_error_handlers
 from common.utils.logger import setup_logging, get_logger
+
 
 from .routes import auth
 
@@ -32,15 +33,19 @@ async def lifespan(app: FastAPI):
     setup_logging()
     logger.info("Starting Auth Service", version=app.version)
     await init_db()
+    app.state.redis = redis.from_url(settings.REDIS_URL, decode_responses=True)
     yield
     # Shutdown
     logger.info("Shutting down Auth Service")
+    await app.state.redis.aclose()
     await close_db()
 
 
 app = FastAPI(
     title="Auth Service - Clinical Storage System",
-    description="Authentication and authorization service for Clinical Storage System",
+    description=(
+        "Authentication and authorization service for Clinical Storage System"
+    ),
     version="1.0.0",
     openapi_url="/api/v1/auth/openapi.json",
     docs_url="/api/v1/auth/docs",
@@ -67,6 +72,7 @@ async def health_check():
 async def readiness_check():
     """Readiness check endpoint."""
     from common.database import engine
+
     try:
         async with engine.connect() as conn:
             await conn.execute(text("SELECT 1"))
