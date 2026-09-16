@@ -115,7 +115,7 @@ export class SyncManager {
       if (docs?.items) {
         await db.documents.bulkPut(docs.items.map((d) => ({
           id: d.id,
-          subject_id: d.subject_id,
+          subject_id: d.subject_id ?? '',
           document_type: d.document_type,
           study_id: d.study?.protocol_number ?? '',
           site_id: d.site?.site_number ?? '',
